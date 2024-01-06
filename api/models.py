@@ -11,6 +11,7 @@ class User(BaseModel):
     name: Optional[str] = None
     created_at: Optional[datetime] = None
     friends:  List[str] = []
+    country: Optional[str] = None
     soulmates: List[str] = []
     music_taste: Optional[str] = None
 

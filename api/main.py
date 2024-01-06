@@ -7,7 +7,8 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
-from .constant import AUTH_URL, API_BASE_URL, REDIRECT_URL, TOKEN_URL
+from constant import AUTH_URL, API_BASE_URL, REDIRECT_URL, TOKEN_URL
+from users import save_user_info
 
 
 app = FastAPI()
@@ -35,6 +36,11 @@ client_secret = os.getenv('SPOTIPY_CLIENT_SECRET', '')
 user_sessions = {}
 
 
+def get_header():
+    return {
+        'Authorization': f"Bearer {user_sessions['access_token']}"
+    }
+
 @app.get('/', response_class=HTMLResponse)
 async def index():
     return "Welcome to my Spotify App <a href='/login'> Login with Spotify.</a>"
@@ -47,7 +53,8 @@ async def auth_user():
       'client_id': client_id,
       'scope': 'user-top-read user-follow-read user-library-read user-read-private',
       'response_type': 'code',
-      'show_dialog': REDIRECT_URL,
+      'redirect_uri': REDIRECT_URL,
+      'show_dialog': True,
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(query_params)}"
@@ -86,54 +93,9 @@ async def callback(request: Request):
                 user_sessions['refresh_token'] = token_info['refresh_token']
                 user_sessions['expires_at'] = datetime.now().timestamp() +  token_info['expires_in']
 
-                return RedirectResponse('/users')
+                return RedirectResponse('/user')
             except httpx.RequestError as e:
                 # Handle request errors (e.g., connection error)
-                raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-
-
-@app.get('/users')
-async def get_user_data():
-    if 'access_token' not in user_sessions:
-        return RedirectResponse('/login')
-
-    if datetime.now().timestamp() > user_sessions['expires_at']:
-        return RedirectResponse('/refresh_token')
-
-    headers = {
-        'Authorization': f"Bearer {user_sessions['access_token']}"
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"{API_BASE_URL}me", headers=headers)
-            playlists = response.json()
-            return playlists
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-
-
-@app.get('/playlists')
-async def get_playlists(request: Request):
-    if 'access_token' not in user_sessions:
-        return RedirectResponse('/login')
-
-    if datetime.now().timestamp() > user_sessions['expires_at']:
-        return RedirectResponse('/refresh_token')
-
-    headers = {
-        'Authorization': f"Bearer {user_sessions['access_token']}"
-    }
-
-    user_id = request.query_params('user_id')
-
-    if user_id:
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(f"{API_BASE_URL}{user_id}/playlists", headers=headers)
-                playlists = response.json()
-                return playlists
-            except httpx.RequestError as e:
                 raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
@@ -141,7 +103,7 @@ async def get_playlists(request: Request):
 async def refresh_token():
     if 'refresh_token' not in user_sessions:
         return RedirectResponse('/login')
-    
+
     if datetime.now().timestamp() > user_sessions['expires_at']:
         req_body = {
             'grant_type': 'refresh_token',
@@ -169,9 +131,44 @@ async def refresh_token():
                 raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-@app.get('/friends')
-async def get_friends():
-    return {'firends': ['list of friends']}
+@app.get('/user')
+async def get_user_data():
+    if 'access_token' not in user_sessions:
+        return RedirectResponse('/login')
+
+    if datetime.now().timestamp() > user_sessions['expires_at']:
+        return RedirectResponse('/refresh_token')
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(f"{API_BASE_URL}me", headers=get_header())
+            user_data = response.json()
+            await save_user_info(user_data)
+            return {'message': 'user details saved'}, 200
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+@app.get('/playlists')
+async def get_playlists(request: Request):
+    if 'access_token' not in user_sessions:
+        return RedirectResponse('/login')
+
+    if datetime.now().timestamp() > user_sessions['expires_at']:
+        return RedirectResponse('/refresh_token')
+
+
+    user_id = request.query_params('user_id')
+
+    if user_id:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header())
+                playlists = response.json()
+                return playlists
+            except httpx.RequestError as e:
+                raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
 
 
 @app.get('/vote_song')
