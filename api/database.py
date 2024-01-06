@@ -20,5 +20,6 @@ async def create_user(user: User) -> None:
     print('done saving user')
 
 
-async def get_user(user_id: str) -> List[Any]:
-    return await users.find_one({'user_id': user_id})\
+async def get_user(user_id: str) -> dict:
+    res = await users.find_one({'user_id': user_id})
+    return res

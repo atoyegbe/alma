@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
 from constant import AUTH_URL, API_BASE_URL, REDIRECT_URL, TOKEN_URL
-from users import save_user_info
+from users import save_user_info, get_user_info
 
 
 app = FastAPI()
@@ -138,13 +138,19 @@ async def get_user_data():
 
     if datetime.now().timestamp() > user_sessions['expires_at']:
         return RedirectResponse('/refresh_token')
-
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{API_BASE_URL}me", headers=get_header())
             user_data = response.json()
-            await save_user_info(user_data)
-            return {'message': 'user details saved'}, 200
+            # move checking if the user exist outside this block, check if a user exist in the db before make this request
+            # if a user does exist in the db no need to make a request to get user data.
+            user = await get_user_info(user_data['id'])
+            if not user:
+                await save_user_info(user_data)
+                return {'message': 'user details saved'}
+            print('be lkkk')
+            return user
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
