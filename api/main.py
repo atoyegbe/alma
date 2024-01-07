@@ -1,15 +1,13 @@
-from datetime import datetime
 import os
 import urllib
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, status, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
 import httpx
-
-from constant import AUTH_URL, API_BASE_URL, REDIRECT_URL, TOKEN_URL
-from users import save_user_info, get_user_info
-
+from constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
+from users import get_user_info, save_user_info
 
 app = FastAPI()
 
@@ -32,7 +30,8 @@ client_id = os.getenv('SPOTIPY_CLIENT_ID', '')
 client_secret = os.getenv('SPOTIPY_CLIENT_SECRET', '')
 
 
-# # In-memory database to store user sessions
+# In-memory database to store user sessions
+# TODO: implement a proper session manager (using redis)
 user_sessions = {}
 
 
@@ -174,11 +173,3 @@ async def get_playlists(request: Request):
                 return playlists
             except httpx.RequestError as e:
                 raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-
-
-
-@app.get('/vote_song')
-async def song_poll():
-    return {'vote': 'vote your favorite songs'}
-
-

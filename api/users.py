@@ -21,3 +21,6 @@ async def get_user_info(user_id: str) -> Optional[User]:
         return None
     user = User(**_user)
     return user
+
+#  TODO : update user data
+#  TODO : return all users

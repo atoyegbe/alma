@@ -1,4 +1,3 @@
-from typing import Any, List
 import motor.motor_asyncio
 
 from models import User
@@ -23,3 +22,7 @@ async def create_user(user: User) -> None:
 async def get_user(user_id: str) -> dict:
     res = await users.find_one({'user_id': user_id})
     return res
+
+# TODO: Remeber to write test
+#  TODO : update user data
+#  TODO : return all users
