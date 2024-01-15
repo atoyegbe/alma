@@ -9,8 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from redis import Redis
 
-
-
 from users import get_user_info, save_user_info
 
 app = FastAPI()
@@ -32,7 +30,6 @@ app.add_middleware(
 
 client_id = os.getenv('SPOTIPY_CLIENT_ID', '')
 client_secret = os.getenv('SPOTIPY_CLIENT_SECRET', '')
-
 
 # In-memory database to store user sessions
 # TODO: implement a proper session manager (using redis)
@@ -94,23 +91,22 @@ async def callback(request: Request):
             'client_secret': client_secret,
         }
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(TOKEN_URL, data=req_body)
+        try:
+            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
 
-                # Check if the response indicates an error (status code 4xx or 5xx)
-                if response.status_code >= 400:
-                    raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
+            # Check if the response indicates an error (status code 4xx or 5xx)
+            if response.status_code >= 400:
+                raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
 
-                token_info = response.json()
-                user_sessions['access_token'] = token_info['access_token']
-                user_sessions['refresh_token'] = token_info['refresh_token']
-                user_sessions['expires_at'] = datetime.now().timestamp() +  token_info['expires_in']
+            token_info = response.json()
+            user_sessions['access_token'] = token_info['access_token']
+            user_sessions['refresh_token'] = token_info['refresh_token']
+            user_sessions['expires_at'] = datetime.now().timestamp() +  token_info['expires_in']
 
-                return RedirectResponse('/user')
-            except httpx.RequestError as e:
-                # Handle request errors (e.g., connection error)
-                raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+            return RedirectResponse('/user')
+        except httpx.RequestError as e:
+            # Handle request errors (e.g., connection error)
+            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
 @app.get('/refresh-token')
@@ -126,23 +122,22 @@ async def refresh_token():
             'client_secret': client_secret
         }
 
-        async with httpx.AsyncClient() as client:
-            try:
-                # Make a request to the callback URL
-                response = await client.post(TOKEN_URL, data=req_body)
+        try:
+            # Make a request to the callback URL
+            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
 
-                # Check if the response indicates an error (status code 4xx or 5xx)
-                if response.status_code >= 400:
-                    raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
+            # Check if the response indicates an error (status code 4xx or 5xx)
+            if response.status_code >= 400:
+                raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
 
-                new_token_info = response.json()
-                user_sessions['access_token'] = new_token_info['access_token']
-                user_sessions['expires_at'] = datetime.now().timestamp() +  new_token_info['expires_in']
+            new_token_info = response.json()
+            user_sessions['access_token'] = new_token_info['access_token']
+            user_sessions['expires_at'] = datetime.now().timestamp() +  new_token_info['expires_in']
 
-                return RedirectResponse('/playlists')
-            except httpx.RequestError as e:
-                # Handle request errors (e.g., connection error)
-                raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+            return RedirectResponse('/playlists')
+        except httpx.RequestError as e:
+            # Handle request errors (e.g., connection error)
+            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
 @app.get('/user')
@@ -153,24 +148,23 @@ async def get_user_data():
     if datetime.now().timestamp() > user_sessions['expires_at']:
         return RedirectResponse('/refresh_token')
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"{API_BASE_URL}me", headers=get_header())
-            user_data = response.json()
-            # move checking if the user exist outside this block, check if a user exist in the db before make this request
-            # if a user does exist in the db no need to make a request to get user data.
-            user = await get_user_info(user_data['id'])
-            if not user:
-                await save_user_info(user_data)
-                return {'message': 'user details saved'}
-            return user
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+    try:
+        response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header())
+        user_data = response.json()
+        # move checking if the user exist outside this block, check if a user exist in the db before make this request
+        # if a user does exist in the db no need to make a request to get user data.
+        user = await get_user_info(user_data['id'])
+        if not user:
+            await save_user_info(user_data)
+            return {'message': 'user details saved'}
+        return user
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
 @app.get('/playlists')
 async def get_playlists(request: Request):
-    if 'access_token' not in user_sessions:
+    if 'access_token' not in app.state.redis:
         return RedirectResponse('/login')
 
     if datetime.now().timestamp() > user_sessions['expires_at']:
@@ -179,10 +173,9 @@ async def get_playlists(request: Request):
     user_id = request.query_params('user_id')
 
     if user_id:
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header())
-                playlists = response.json()
-                return playlists
-            except httpx.RequestError as e:
-                raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+        try:
+            response = await app.state.http_client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header())
+            playlists = response.json()
+            return playlists
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
