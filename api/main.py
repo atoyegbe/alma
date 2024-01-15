@@ -7,6 +7,10 @@ from constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from redis import Redis
+
+
+
 from users import get_user_info, save_user_info
 
 app = FastAPI()
@@ -39,6 +43,17 @@ def get_header():
     return {
         'Authorization': f"Bearer {user_sessions['access_token']}"
     }
+
+@app.on_event('startup')
+async def startup_event():
+    app.state.redis = Redis(host='localhost', port=6379)
+    app.state.http_client = httpx.AsyncClient()
+
+
+@app.on_event('shutdown')
+async def shutdown_event():
+    app.state.redis.closee()
+
 
 @app.get('/', response_class=HTMLResponse)
 async def index():
@@ -137,7 +152,7 @@ async def get_user_data():
 
     if datetime.now().timestamp() > user_sessions['expires_at']:
         return RedirectResponse('/refresh_token')
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{API_BASE_URL}me", headers=get_header())
@@ -148,7 +163,6 @@ async def get_user_data():
             if not user:
                 await save_user_info(user_data)
                 return {'message': 'user details saved'}
-            print('be lkkk')
             return user
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
@@ -161,7 +175,6 @@ async def get_playlists(request: Request):
 
     if datetime.now().timestamp() > user_sessions['expires_at']:
         return RedirectResponse('/refresh_token')
-
 
     user_id = request.query_params('user_id')
 
