@@ -22,5 +22,9 @@ async def get_user_info(user_id: str) -> Optional[User]:
     user = User(**_user)
     return user
 
+
+
+# TODO : save users top artist
+# TODO : save users top track
 #  TODO : update user data
 #  TODO : return all users

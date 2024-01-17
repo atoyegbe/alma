@@ -10,7 +10,6 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
 database = client.alma
 
 users = database.get_collection("users")
-friends = database.get_collection('friends')
 
 
 async def create_user(user: User) -> None:

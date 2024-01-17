@@ -13,9 +13,6 @@ class User(BaseModel):
     friends:  List[str] = []
     country: Optional[str] = None
     soulmates: List[str] = []
-    music_taste: Optional[str] = None
-
-
-class Friend(BaseModel):
-    id: Optional[str]
-    friend_id: Optional[str]
+    genres: Optional[str] = None
+    top_artists = List[str] =  []
+    top_albums = List[str] = []
