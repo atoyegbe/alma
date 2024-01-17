@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional
 
 
-from models import User
-from database import create_user, get_user
+from app.models import User
+from app.database import create_user, get_user
 
 
 async def save_user_info(data: Dict[str, Any]):

@@ -3,25 +3,27 @@ import urllib
 from datetime import datetime
 
 import httpx
-from constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
+from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from redis import Redis
 
-from users import get_user_info, save_user_info
+from app.users import get_user_info, save_user_info
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis = Redis(host='localhost', port=6379)
+    app.state.http_client = httpx.AsyncClient()
+    yield
+    app.state.redis.closee()
 
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://localhost:8000/callback",
-]
+app = FastAPI(lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,16 +42,6 @@ def get_header():
     return {
         'Authorization': f"Bearer {user_sessions['access_token']}"
     }
-
-@app.on_event('startup')
-async def startup_event():
-    app.state.redis = Redis(host='localhost', port=6379)
-    app.state.http_client = httpx.AsyncClient()
-
-
-@app.on_event('shutdown')
-async def shutdown_event():
-    app.state.redis.closee()
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -128,7 +120,9 @@ async def refresh_token():
 
             # Check if the response indicates an error (status code 4xx or 5xx)
             if response.status_code >= 400:
-                raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Callback error: {response.text}")
 
             new_token_info = response.json()
             user_sessions['access_token'] = new_token_info['access_token']

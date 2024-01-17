@@ -1,6 +1,6 @@
 import motor.motor_asyncio
 
-from models import User
+from app.models import User
 from fastapi.encoders import jsonable_encoder
 
 MONGO_DETAILS = "mongodb://localhost:27017/alma"
