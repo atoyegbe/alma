@@ -56,10 +56,6 @@ db_dependency = Annotated[Session, Depends(get_db)]
 client_id = os.getenv('SPOTIPY_CLIENT_ID', '')
 client_secret = os.getenv('SPOTIPY_CLIENT_SECRET', '')
 
-# In-memory database to store user sessions
-# TODO: implement a proper session manager (using redis)
-user_sessions = {}
-
 
 def get_header(request: Request):
     return {
@@ -186,9 +182,11 @@ async def get_user_data(request: Request, db: db_dependency):
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
+
 @app.get("/user")
 async def get_users(db: db_dependency):
     pass
+
 
 @app.get('/playlists', dependencies=[Depends(requires_auth)])
 async def get_playlists(request: Request):
