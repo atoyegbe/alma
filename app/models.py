@@ -1,10 +1,10 @@
-from sqlalchemy import  Column, ForeignKey, Table, String, DateTime, UniqueConstraint, ARRAY
+from sqlalchemy import (Column, DateTime, ForeignKey, String, Table,
+                        UniqueConstraint)
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-# from sqlalchemy.dialects.postgresql import ARRAY
 
 from .database import Base
-
 
 user_friends = Table(
     'user_friends', 
@@ -29,8 +29,8 @@ class User(Base):
     friends = relationship(
         "User",
         secondary=user_friends,
-        primaryjoin=id==user_friends.c.user_id,
-        secondaryjoin=id==user_friends.c.friend_id,
+        primaryjoin=user_id==user_friends.c.user_id,
+        secondaryjoin=user_id==user_friends.c.friend_id,
         back_populates="friend_of",
         doc="Many-to-many relationship representing the user's friends."
     )
@@ -39,7 +39,7 @@ class User(Base):
     friend_of = relationship(
         "User",
         secondary=user_friends,
-        primaryjoin=id==user_friends.c.friend_id,
-        secondaryjoin=id==user_friends.c.user_id,
+        primaryjoin=user_id==user_friends.c.friend_id,
+        secondaryjoin=user_id==user_friends.c.user_id,
         back_populates="friends"
     )

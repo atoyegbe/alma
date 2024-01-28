@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 
 from app.models import Base
@@ -27,12 +28,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 Base.metadata.create_all(bind=engine)
+
 origins = [
     "http://localhost",
     "http://localhost:8000",
     "http://localhost:8000/callback",
 ]
-
+app.add_middleware(SessionMiddleware, secret_key="dhdhh37379fvckdetagsg")
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,7 +63,7 @@ user_sessions = {}
 
 def get_header(request: Request):
     return {
-        'Authorization': f"Bearer {request.user_sessions['access_token']}"
+        'Authorization': f"Bearer {request.session['access_token']}"
     }
 
 async def requires_auth(request: Request) -> None:
@@ -168,10 +170,10 @@ async def refresh_token(request: Request):
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-@app.get('/user', Depends(requires_auth))
-async def get_user_data(db: db_dependency):
+@app.get('/user', dependencies=[Depends(requires_auth)])
+async def get_user_data(request: Request, db: db_dependency):
     try:
-        response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header())
+        response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
         user_data = response.json()
         # move checking if the user exist outside this block, check if a user exist in the db before make this request
         # if a user does exist in the db no need to make a request to get user data.
@@ -188,12 +190,12 @@ async def get_user_data(db: db_dependency):
 async def get_users(db: db_dependency):
     pass
 
-@app.get('/playlists', Depends(requires_auth))
+@app.get('/playlists', dependencies=[Depends(requires_auth)])
 async def get_playlists(request: Request):
     user_id = request.query_params('user_id')
     if user_id:
         try:
-            response = await app.state.http_client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header())
+            response = await app.state.http_client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header(request))
             playlists = response.json()
             return playlists
         except httpx.RequestError as e:
