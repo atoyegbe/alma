@@ -1,27 +1,12 @@
-import motor.motor_asyncio
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-from app.models import User
-from fastapi.encoders import jsonable_encoder
+DATABASE_URL = "postgresql://postgres:test@localhost:5342/alma"
 
-MONGO_DETAILS = "mongodb://localhost:27017/alma"
+engine = create_engine(
+    DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-
-database = client.alma
-
-users = database.get_collection("users")
-
-
-async def create_user(user: User) -> None:
-    _json_user = jsonable_encoder(user)
-    await users.insert_one(_json_user)
-    print('done saving user')
-
-
-async def get_user(user_id: str) -> dict:
-    res = await users.find_one({'user_id': user_id})
-    return res
-
-# TODO: Remeber to write test
-#  TODO : update user data
-#  TODO : return all users
+Base = declarative_base()

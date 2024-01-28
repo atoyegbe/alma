@@ -1,30 +1,49 @@
 from typing import Dict, Any, Optional
 
+from sqlalchemy.orm import Session
 
 from app.models import User
-from app.database import create_user, get_user
+from app.schema import UserSchema
 
 
-async def save_user_info(data: Dict[str, Any]):
-    new_user = User()
-    new_user.user_id = data['id']
-    new_user.name = data['display_name']
-    new_user.country = data['country']
-
-    print('saving user')
-    await create_user(new_user)
+def create_user(db: Session, user: UserSchema):
+    db_user = User(**user.model_dump())
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
 
 
-async def get_user_info(user_id: str) -> Optional[User]:
-    _user = await get_user(user_id)
-    if not _user:
-        return None
-    user = User(**_user)
+def get_user(db: Session, user_id: str):
+    return db.query(User).filter(User.user_id == user_id).first()
+
+
+def get_users(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(User).offset(skip).limit(limit).all()
+
+
+def get_user_friends(db: Session, user_id: str):
+    user: User = db.query(User).filter(User.user_id == user_id).first()
+    return user.friends
+
+
+def update_user(db: Session, user_id: int, **kwargs) -> None:
+    """
+    Updates one or more fields of a user with the given ID.
+
+    Args:
+        session: The SQLAlchemy session to use.
+        user_id: The ID of the user to update.
+        **kwargs: Keyword arguments representing the fields to update and their new values.
+    """
+
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise ValueError(f"User with id {user_id} not found.")
+
+    for field, value in kwargs.items():
+        setattr(user, field, value)
+
+    db.commit()
     return user
 
-
-
-# TODO : save users top artist
-# TODO : save users top track
-#  TODO : update user data
-#  TODO : return all users
