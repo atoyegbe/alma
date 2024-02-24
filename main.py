@@ -1,23 +1,21 @@
-from datetime import datetime
-from typing import Annotated
 import os
 import urllib
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Annotated
 
 import httpx
-from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
-from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.models import Base
-from app.schema import UserSchema
-from app.database import engine, SessionLocal
 from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
-
-from app.users import get_user, get_user_friends, get_users, create_user
-
+from app.database import SessionLocal, engine
+from app.models import Base, User
+from app.schema import UserSchema
+from app.users import (create_user, get_user, update_user)
 
 
 @asynccontextmanager
@@ -169,32 +167,66 @@ async def refresh_token(request: Request):
 @app.get('/user', dependencies=[Depends(requires_auth)])
 async def get_user_data(request: Request, db: db_dependency):
     try:
-        response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
-        user_data = response.json()
-        # move checking if the user exist outside this block, check if a user exist in the db before make this request
-        # if a user does exist in the db no need to make a request to get user data.
-        existing_user = await get_user(db, user_data['id'])
+        user_id = request.session.get('user_id')
+        existing_user: User = None
+        if user_id:
+            existing_user = await get_user(db, request.session.get('user_id'))
+    
         if not existing_user:
+            response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
+            user_data = response.json()
+
+            request.session['user_id'] = user_data['id']
             new_user = UserSchema(user_id=user_data['id'], username=user_data['display_name'], country=user_data['country'])
-            await create_user(db, user=new_user)
+            await create_user(db, new_user)
+
+            await save_user_top_tracks(request)
+            await save_top_artists(request)
+
             return {'message': 'user details saved'}
         return existing_user
+
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-@app.get("/user")
-async def get_users(db: db_dependency):
-    pass
-
-
 @app.get('/playlists', dependencies=[Depends(requires_auth)])
 async def get_playlists(request: Request):
-    user_id = request.query_params('user_id')
-    if user_id:
-        try:
-            response = await app.state.http_client.get(f"{API_BASE_URL}{user_id}/playlists", headers=get_header(request))
-            playlists = response.json()
-            return playlists
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+    try:
+        response = await app.state.http_client.get(f"{API_BASE_URL}me/playlists", 
+                                                    headers=get_header(request))
+        playlists = response.json()
+        return playlists
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+async def get_followed_artist(request: Request):
+    try:
+        response = await app.state.http_client.get(f"{API_BASE_URL}me/following?type=artist",
+                                                   headers=get_header(request))
+        artists = response.json()
+        return artists
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=400, detail=f"Request error: {str(e)}")
+
+async def save_top_artists(request: Request):
+    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/artists?time_range=long_term",
+                                               headers=get_header(request))
+    resp = response.json()
+    top_artists = [track['name'] for track in resp['items']]
+    genres_list = [track['genres'] for track in resp['items']]
+    flattened_list = [genre for genres in genres_list for genre in genres]
+
+    print('saving user genres and top artists' )
+    await update_user(app.state.db, request.session['user_id'],
+                       **{'top_artists': top_artists, 'genres': list(set(flattened_list))})
+    
+
+async def save_user_top_tracks(request: Request):
+    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/tracks?time_range=long_term",
+                                               headers=get_header(request))
+    resp = response.json()
+    top_tracks = [track['name'] for track in resp['items']]
+    print('saving user top tracks')
+    await update_user(app.state.db, request.session['user_id'], **{'top_tracks': top_tracks})

@@ -1,4 +1,5 @@
-from typing import Dict, Any, Optional
+import logging
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
@@ -6,7 +7,11 @@ from app.models import User
 from app.schema import UserSchema
 
 
-def create_user(db: Session, user: UserSchema):
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+async def create_user(db: Session, user: UserSchema):
     db_user = User(**user.model_dump())
     db.add(db_user)
     db.commit()
@@ -42,7 +47,11 @@ async def update_user(db: Session, user_id: int, **kwargs) -> None:
         raise ValueError(f"User with id {user_id} not found.")
 
     for field, value in kwargs.items():
-        setattr(user, field, value)
+        if hasattr(User, field):  # Check if the field exists in the User model
+            print(field, value)
+            setattr(user, field, value)
+        else:
+            raise ValueError(f"User object does not have attribute {field}")
 
     db.commit()
     return user

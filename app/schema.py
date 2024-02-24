@@ -6,6 +6,7 @@ class UserBase(BaseModel):
     username: str
     country: Optional[str] = None
     geners: List[str] = []
+    top_tracks: List[str] = []
     top_artists: List[str] = []
     top_albums: List[str] = []
 

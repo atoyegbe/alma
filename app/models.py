@@ -23,6 +23,7 @@ class User(Base):
     country = Column(String)
     geners = Column(ARRAY(String))
     top_artists = Column(ARRAY(String))
+    top_tracks = Column(ARRAY(String))
     top_albums = Column(ARRAY(String))
     created_at = Column(DateTime, default=func.now())
 
