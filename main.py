@@ -15,7 +15,8 @@ from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
 from app.database import SessionLocal, engine
 from app.models import Base, User
 from app.schema import UserSchema
-from app.users import (create_user, get_user, update_user)
+from app.users import (create_user, get_user, update_user, get_users)
+from app.similarity import get_users_similiraity
 
 
 @asynccontextmanager
@@ -188,6 +189,34 @@ async def get_user_data(request: Request, db: db_dependency):
 
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+# todo ; check user match
+# todo : ability to filter users by genres
+# todo : implement a recommendation endpoint and system
+    
+
+@app.get('/users', dependencies=[Depends(requires_auth)])
+async def get_all_users():
+    try:
+        response = get_users(app.stat.db)
+        return response
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+@app.get('/check-match', dependencies=[Depends[requires_auth]])
+async def check_match(request: Request):
+    user_id = request.query_params['user_id']
+    match_id = request.query_params['match_id']
+    user1 = get_user(app.state.db, user_id)
+    user2 = get_user(app.state.db, match_id)
+
+    similarity_score = get_users_similiraity(user1, user2)
+    
+    # converting cosine similarity score to percentage
+    similarity_percentage = (similarity_score + 1) / 2 * 100
+
+    return {'data': {'similarity_percentage': similarity_percentage}}
 
 
 @app.get('/playlists', dependencies=[Depends(requires_auth)])
