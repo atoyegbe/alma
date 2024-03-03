@@ -15,8 +15,8 @@ from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
 from app.database import SessionLocal, engine
 from app.models import Base, User
 from app.schema import UserSchema
-from app.users import (create_user, get_user, update_user, get_users)
 from app.similarity import get_users_similiraity
+from app.users import create_user, get_user, get_users, update_user
 
 
 @asynccontextmanager
@@ -82,15 +82,13 @@ async def index():
 
 @app.get('/login')
 async def auth_user():
-
     query_params = {
       'client_id': client_id,
-      'scope': 'user-top-read user-follow-read user-library-read user-read-private',
+      'scope': 'user-top-read user-follow-read user-library-read user-read-private user-read-email',
       'response_type': 'code',
       'redirect_uri': REDIRECT_URL,
       'show_dialog': True,
     }
-
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(query_params)}"
 
     return RedirectResponse(auth_url, status_code=status.HTTP_302_FOUND)
@@ -171,7 +169,7 @@ async def get_user_data(request: Request, db: db_dependency):
         user_id = request.session.get('user_id')
         existing_user: User = None
         if user_id:
-            existing_user = await get_user(db, request.session.get('user_id'))
+            existing_user = await get_user(db, user_id)
     
         if not existing_user:
             response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
@@ -190,13 +188,12 @@ async def get_user_data(request: Request, db: db_dependency):
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
-# todo ; check user match
-# todo : ability to filter users by genres
 # todo : implement a recommendation endpoint and system
-    
+
 
 @app.get('/users', dependencies=[Depends(requires_auth)])
 async def get_all_users():
+    # todo : ability to filter users by genres
     try:
         response = get_users(app.stat.db)
         return response
@@ -204,17 +201,19 @@ async def get_all_users():
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-@app.get('/check-match', dependencies=[Depends[requires_auth]])
+@app.get('/check-match', dependencies=[Depends(requires_auth)])
 async def check_match(request: Request):
     user_id = request.query_params['user_id']
     match_id = request.query_params['match_id']
-    user1 = get_user(app.state.db, user_id)
-    user2 = get_user(app.state.db, match_id)
+    user1 = await get_user(app.state.db, user_id)
+    user2 = await get_user(app.state.db, match_id)
+    if not any([user1, user2]):
+        return {'message': 'users does not exist'}
 
     similarity_score = get_users_similiraity(user1, user2)
     
     # converting cosine similarity score to percentage
-    similarity_percentage = (similarity_score + 1) / 2 * 100
+    similarity_percentage = 0.0 if similarity_score == 0.0 else (similarity_score + 1) / 2 * 100
 
     return {'data': {'similarity_percentage': similarity_percentage}}
 
@@ -244,7 +243,7 @@ async def save_top_artists(request: Request):
                                                headers=get_header(request))
     resp = response.json()
     top_artists = [track['name'] for track in resp['items']]
-    genres_list = [track['genres'] for track in resp['items']]
+    genres_list = [track['genres'] for track in resp['items'] if track['genres']]
     flattened_list = [genre for genres in genres_list for genre in genres]
 
     print('saving user genres and top artists' )

@@ -21,7 +21,7 @@ class User(Base):
     user_id = Column(String, primary_key=True)
     username = Column(String, unique=True, index=True)
     country = Column(String)
-    geners = Column(ARRAY(String))
+    genres = Column(ARRAY(String))
     top_artists = Column(ARRAY(String))
     top_tracks = Column(ARRAY(String))
     top_albums = Column(ARRAY(String))

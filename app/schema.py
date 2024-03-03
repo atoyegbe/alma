@@ -1,11 +1,12 @@
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 
 class UserBase(BaseModel):
     username: str
     country: Optional[str] = None
-    geners: List[str] = []
+    genres: List[str] = []
     top_tracks: List[str] = []
     top_artists: List[str] = []
     top_albums: List[str] = []
