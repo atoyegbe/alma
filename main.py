@@ -22,7 +22,6 @@ from app.users import create_user, get_user, get_users, update_user
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient()
-    app.state.db = SessionLocal()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -113,7 +112,7 @@ async def callback(request: Request):
         }
 
         try:
-            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
+            response = await request.state.http_client.post(TOKEN_URL, data=req_body)
 
             # Check if the response indicates an error (status code 4xx or 5xx)
             if response.status_code >= 400:
@@ -145,7 +144,7 @@ async def refresh_token(request: Request):
 
         try:
             # Make a request to the callback URL
-            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
+            response = await request.state.http_client.post(TOKEN_URL, data=req_body)
 
             # Check if the response indicates an error (status code 4xx or 5xx)
             if response.status_code >= 400:
@@ -164,7 +163,7 @@ async def refresh_token(request: Request):
 
 
 @app.get('/user', dependencies=[Depends(requires_auth)])
-async def get_user_data(request: Request, db: db_dependency):
+async def get_user_data(request: Request, db: Session = Depends(get_db)):
     try:
         user_id = request.session.get('user_id')
         existing_user: User = None
@@ -172,41 +171,63 @@ async def get_user_data(request: Request, db: db_dependency):
             existing_user = await get_user(db, user_id)
     
         if not existing_user:
-            response = await app.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
+            response = await request.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
             user_data = response.json()
 
             request.session['user_id'] = user_data['id']
-            new_user = UserSchema(user_id=user_data['id'], username=user_data['display_name'], country=user_data['country'])
-            await create_user(db, new_user)
+            pro_existing_user = await get_user(db, user_data['id'])
+            if not pro_existing_user:
+                new_user = UserSchema(user_id=user_data['id'], username=user_data['display_name'], country=user_data['country'])
+                await create_user(db, new_user)
 
-            await save_user_top_tracks(request)
-            await save_top_artists(request)
-
-            return {'message': 'user details saved'}
+                await save_user_top_tracks(request)
+                await save_top_artists(request)
+                return {'message': 'user details saved'}
+            return existing_user
         return existing_user
 
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
-# todo : implement a recommendation endpoint and system
+
+# todo: use a post request. 
+@app.get('/follow', dependencies=[Depends(requires_auth)])
+async def follow_user(request: Request, db: Session = Depends(get_db)):
+    try:
+        # json_data = request.json()
+        # friend_id = json_data['friend_id']
+        friend_id= request.query_params['friend_id']
+        user_id = request.session.get('user_id')
+
+        friend = await get_user(db, friend_id)
+        await update_user(db, user_id, **{'friends': [friend]})
+        print(f'{user_id} followed {friend_id}')
+        return {'message': 'success'}
+
+    except:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
 @app.get('/users', dependencies=[Depends(requires_auth)])
-async def get_all_users():
+async def get_all_users(db: Session = Depends(get_db)):
     # todo : ability to filter users by genres
     try:
-        response = get_users(app.stat.db)
+        response = await get_users(db)
         return response
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
+@app.get('/user-friends', dependencies=[Depends(requires_auth)])
+async def get_user_friends():
+    pass
+
 @app.get('/check-match', dependencies=[Depends(requires_auth)])
-async def check_match(request: Request):
+async def check_match(request: Request, db: Session = Depends(get_db)):
     user_id = request.query_params['user_id']
     match_id = request.query_params['match_id']
-    user1 = await get_user(app.state.db, user_id)
-    user2 = await get_user(app.state.db, match_id)
+    user1 = await get_user(db, user_id)
+    user2 = await get_user(db, match_id)
     if not any([user1, user2]):
         return {'message': 'users does not exist'}
 
@@ -221,7 +242,7 @@ async def check_match(request: Request):
 @app.get('/playlists', dependencies=[Depends(requires_auth)])
 async def get_playlists(request: Request):
     try:
-        response = await app.state.http_client.get(f"{API_BASE_URL}me/playlists", 
+        response = await request.state.http_client.get(f"{API_BASE_URL}me/playlists", 
                                                     headers=get_header(request))
         playlists = response.json()
         return playlists
@@ -231,15 +252,15 @@ async def get_playlists(request: Request):
 
 async def get_followed_artist(request: Request):
     try:
-        response = await app.state.http_client.get(f"{API_BASE_URL}me/following?type=artist",
+        response = await request.state.http_client.get(f"{API_BASE_URL}me/following?type=artist",
                                                    headers=get_header(request))
         artists = response.json()
         return artists
     except httpx.RequestError as e:
         raise HTTPException(status_code=400, detail=f"Request error: {str(e)}")
 
-async def save_top_artists(request: Request):
-    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/artists?time_range=long_term",
+async def save_top_artists(request: Request, db: Session = Depends(get_db)):
+    response = await request.state.http_client.get(f"{API_BASE_URL}me/top/artists?time_range=long_term",
                                                headers=get_header(request))
     resp = response.json()
     top_artists = [track['name'] for track in resp['items']]
@@ -247,14 +268,16 @@ async def save_top_artists(request: Request):
     flattened_list = [genre for genres in genres_list for genre in genres]
 
     print('saving user genres and top artists' )
-    await update_user(app.state.db, request.session['user_id'],
+    await update_user(db, request.session['user_id'],
                        **{'top_artists': top_artists, 'genres': list(set(flattened_list))})
     
 
-async def save_user_top_tracks(request: Request):
-    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/tracks?time_range=long_term",
+async def save_user_top_tracks(request: Request, db: Session = Depends(get_db)):
+    response = await request.state.http_client.get(f"{API_BASE_URL}me/top/tracks?time_range=long_term",
                                                headers=get_header(request))
     resp = response.json()
     top_tracks = [track['name'] for track in resp['items']]
     print('saving user top tracks')
-    await update_user(app.state.db, request.session['user_id'], **{'top_tracks': top_tracks})
+    await update_user(db, request.session['user_id'], **{'top_tracks': top_tracks})
+
+# todo : implement a recommendation endpoint and system
