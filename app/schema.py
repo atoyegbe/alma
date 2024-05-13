@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -6,6 +7,9 @@ from pydantic import BaseModel
 class UserBase(BaseModel):
     username: str
     country: Optional[str] = None
+    auth_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_expires_date: Optional[datetime] = None
     genres: List[str] = []
     top_tracks: List[str] = []
     top_artists: List[str] = []

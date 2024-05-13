@@ -2,35 +2,39 @@ import os
 import urllib
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, List, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL
 from app.database import SessionLocal, engine
-from app.models import Base, User
+from app.models import Base
 from app.schema import UserSchema
 from app.similarity import get_users_similiraity
-from app.users import create_user, get_user, get_users, update_user
+from app.users import (create_user, get_user, get_user_by_token, get_users,
+                       update_user)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient()
     yield
+    await app.state.http_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
 Base.metadata.create_all(bind=engine)
 
 origins = [
-    "http://localhost",
+    "*",
     "http://localhost:8000",
-    "http://localhost:8000/callback",
+    "http://localhost:3000/",
+    "http://localhost:3000/callback",
 ]
 app.add_middleware(SessionMiddleware, secret_key="dhdhh37379fvckdetagsg")
 
@@ -55,28 +59,36 @@ client_id = os.getenv('SPOTIPY_CLIENT_ID', '')
 client_secret = os.getenv('SPOTIPY_CLIENT_SECRET', '')
 
 
-def get_header(request: Request):
+def get_header(token: str):
     return {
-        'Authorization': f"Bearer {request.session['access_token']}"
+        'Authorization': f"Bearer {token}"
     }
 
-async def requires_auth(request: Request) -> None:
+async def requires_auth(request: Request, auth_token: Optional[str] = Header(None)) -> UserSchema:
     """
-    Checks for a valid access token in the user's session and redirects
-    to the login or refresh token route if necessary.
+    Validate user
     """
+    if not auth_token:
+        raise HTTPException(status_code=401, detail='No auth header')
 
-    user_sessions = request.session
+    if not auth_token.startswith('Bearer'):
+        raise HTTPException(
+            status_code=401, detail="'Bearer' prefix missing"
+        )
 
-    if 'access_token' not in user_sessions:
-        return RedirectResponse('/login')
+    token = auth_token[7:]
+    if not token:
+        raise HTTPException(
+            status_code=401, detail='No token in auth header'
+        )
 
-    if datetime.now().timestamp() > user_sessions['expires_at']:
-        return RedirectResponse('/refresh_token')
-
-@app.get('/', response_class=HTMLResponse)
-async def index():
-    return "Welcome to my Spotify App <a href='/login'> Login with Spotify.</a>"
+    db = get_db()
+    current_user = get_user_by_token(db, auth_token)
+    if not current_user:
+       raise HTTPException(
+            status_code=401, detail='Unable to authenticate user'
+        )
+    return current_user
 
 
 @app.get('/login')
@@ -94,12 +106,11 @@ async def auth_user():
 
 
 @app.get('/callback')
-async def callback(request: Request):
+async def callback(request: Request, db: Session = Depends(get_db), background_tasks: BackgroundTasks = Depends()):
     error_param = request.query_params.get("error")
     code_param = request.query_params.get("code")
 
     if error_param:
-        # Handle the case where "error" parameter exists
         raise HTTPException(status_code=400, detail=f"Error in callback: {error_param}")
 
     if code_param:
@@ -112,28 +123,36 @@ async def callback(request: Request):
         }
 
         try:
-            response = await request.state.http_client.post(TOKEN_URL, data=req_body)
+            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
 
-            # Check if the response indicates an error (status code 4xx or 5xx)
             if response.status_code >= 400:
                 raise HTTPException(status_code=response.status_code, detail=f"Callback error: {response.text}")
-
             token_info = response.json()
-            request.session['access_token'] = token_info['access_token']
-            request.session['refresh_token'] = token_info['refresh_token']
-            request.session['expires_at'] = datetime.now().timestamp() +  token_info['expires_in']
+            
+            user_response = await app.state.http_client.get(f"{API_BASE_URL}me", headers={ 'Authorization': f"Bearer {token_info['access_token']}"})
+            user_data = user_response.json()
+            new_user = UserSchema(
+                user_id=user_data['id'],
+                username=user_data['display_name'],
+                country=user_data['country'],
+                auth_token=token_info['access_token'],
+                refresh_token=token_info['refresh_token'],
+                token_expires_date=datetime.now().timestamp() +  token_info['expires_in']
+            )
+            await create_user(db, new_user)
 
-            return RedirectResponse('/user')
+            background_tasks.add_task(save_user_top_tracks, new_user.auth_token, db)
+            background_tasks.add_task(save_top_artists, new_user.auth_token, db)
+            # todo: run this in backgorund task in RedirectResponse
+            await save_user_top_tracks(new_user.auth_token, db)
+            await save_top_artists(new_user.auth_token, db)
+            return RedirectResponse('http://localhost:3000/dashboard', background=)
         except httpx.RequestError as e:
-            # Handle request errors (e.g., connection error)
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
 @app.get('/refresh-token')
-async def refresh_token(request: Request):
-    if 'refresh_token' not in request.session:
-        return RedirectResponse('/login')
-
+async def refresh_token(refresh_token: str, request: Request):
     if datetime.now().timestamp() > request.session['expires_at']:
         req_body = {
             'grant_type': 'refresh_token',
@@ -144,7 +163,7 @@ async def refresh_token(request: Request):
 
         try:
             # Make a request to the callback URL
-            response = await request.state.http_client.post(TOKEN_URL, data=req_body)
+            response = await app.state.http_client.post(TOKEN_URL, data=req_body)
 
             # Check if the response indicates an error (status code 4xx or 5xx)
             if response.status_code >= 400:
@@ -162,32 +181,95 @@ async def refresh_token(request: Request):
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-@app.get('/user', dependencies=[Depends(requires_auth)])
-async def get_user_data(request: Request, db: Session = Depends(get_db)):
+@app.get('/profile', response_model=UserSchema)
+async def get_user_data(
+    db: Session = Depends(get_db),
+    current_user = Annotated[UserSchema,Depends(requires_auth)]
+):
     try:
-        user_id = request.session.get('user_id')
-        existing_user: User = None
-        if user_id:
-            existing_user = await get_user(db, user_id)
-    
-        if not existing_user:
-            response = await request.state.http_client.get(f"{API_BASE_URL}me", headers=get_header(request))
-            user_data = response.json()
-
-            request.session['user_id'] = user_data['id']
-            pro_existing_user = await get_user(db, user_data['id'])
-            if not pro_existing_user:
-                new_user = UserSchema(user_id=user_data['id'], username=user_data['display_name'], country=user_data['country'])
-                await create_user(db, new_user)
-
-                await save_user_top_tracks(request)
-                await save_top_artists(request)
-                return {'message': 'user details saved'}
-            return existing_user
-        return existing_user
-
+        user = await get_user(db, current_user.user_id)
+        return UserSchema(*user)
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+@app.get(
+        '/users', 
+        response_model=List[UserSchema],
+        dependencies=[Depends(requires_auth)]
+)
+async def get_all_users(db: Session = Depends(get_db)):
+    # todo : ability to filter users by genres
+    try:
+        return await get_users(db)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+class SimilarityPercentage(BaseModel):
+    similarity_score: int
+
+@app.get('/check-match', response_model=SimilarityPercentage)
+async def check_match(
+    request: Request, 
+    db: Session = Depends(get_db),
+    current_user = Annotated[UserSchema, Depends(requires_auth)]
+):
+    match_id = request.query_params['match_id']
+    match_user = await get_user(db, match_id)
+    if not match_user:
+        return {'message': 'users does not exist'}
+
+    similarity_score = get_users_similiraity(current_user, match_user)
+    
+    # converting cosine similarity score to percentage
+    similarity_score = 0.0 if similarity_score == 0.0 else (similarity_score + 1) / 2 * 100
+
+    return SimilarityPercentage(similarity_score)
+
+
+@app.get('/playlists', dependencies=[Depends(requires_auth)])
+async def get_playlists(token: str):
+    try:
+        response = await app.state.http_client.get(f"{API_BASE_URL}me/playlists", 
+                                                    headers=get_header(token))
+        playlists = response.json()
+        return playlists
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+
+
+async def get_followed_artist(token: str):
+    try:
+        response = await app.state.http_client.get(f"{API_BASE_URL}me/following?type=artist",
+                                                   headers=get_header(token))
+        artists = response.json()
+        return artists
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=400, detail=f"Request error: {str(e)}")
+
+async def save_top_artists(token: str,  db: Session = Depends(get_db)):
+    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/artists?time_range=long_term",
+                                               headers=get_header(token))
+    resp = response.json()
+    top_artists = [track['name'] for track in resp['items']]
+    genres_list = [track['genres'] for track in resp['items'] if track['genres']]
+    flattened_list = [genre for genres in genres_list for genre in genres]
+
+    print('saving user genres and top artists' )
+    current_user = await get_user_by_token(db, token)
+    await update_user(db, current_user.user_id,
+                       **{'top_artists': top_artists, 'genres': list(set(flattened_list))})
+    
+
+async def save_user_top_tracks(token: str, db: Session = Depends(get_db)):
+    response = await app.state.http_client.get(f"{API_BASE_URL}me/top/tracks?time_range=long_term",
+                                               headers=get_header(token))
+    resp = response.json()
+    print('res', resp)
+    top_tracks = [track['name'] for track in resp['items']]
+    current_user = await get_user_by_token(db, token)
+    await update_user(db, current_user.user_id, **{'top_tracks': top_tracks})
 
 
 # todo: use a post request. 
@@ -207,77 +289,3 @@ async def follow_user(request: Request, db: Session = Depends(get_db)):
     except:
         raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
-
-@app.get('/users', dependencies=[Depends(requires_auth)])
-async def get_all_users(db: Session = Depends(get_db)):
-    # todo : ability to filter users by genres
-    try:
-        response = await get_users(db)
-        return response
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-
-
-@app.get('/user-friends', dependencies=[Depends(requires_auth)])
-async def get_user_friends():
-    pass
-
-@app.get('/check-match', dependencies=[Depends(requires_auth)])
-async def check_match(request: Request, db: Session = Depends(get_db)):
-    user_id = request.query_params['user_id']
-    match_id = request.query_params['match_id']
-    user1 = await get_user(db, user_id)
-    user2 = await get_user(db, match_id)
-    if not any([user1, user2]):
-        return {'message': 'users does not exist'}
-
-    similarity_score = get_users_similiraity(user1, user2)
-    
-    # converting cosine similarity score to percentage
-    similarity_percentage = 0.0 if similarity_score == 0.0 else (similarity_score + 1) / 2 * 100
-
-    return {'data': {'similarity_percentage': similarity_percentage}}
-
-
-@app.get('/playlists', dependencies=[Depends(requires_auth)])
-async def get_playlists(request: Request):
-    try:
-        response = await request.state.http_client.get(f"{API_BASE_URL}me/playlists", 
-                                                    headers=get_header(request))
-        playlists = response.json()
-        return playlists
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-
-
-async def get_followed_artist(request: Request):
-    try:
-        response = await request.state.http_client.get(f"{API_BASE_URL}me/following?type=artist",
-                                                   headers=get_header(request))
-        artists = response.json()
-        return artists
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=400, detail=f"Request error: {str(e)}")
-
-async def save_top_artists(request: Request, db: Session = Depends(get_db)):
-    response = await request.state.http_client.get(f"{API_BASE_URL}me/top/artists?time_range=long_term",
-                                               headers=get_header(request))
-    resp = response.json()
-    top_artists = [track['name'] for track in resp['items']]
-    genres_list = [track['genres'] for track in resp['items'] if track['genres']]
-    flattened_list = [genre for genres in genres_list for genre in genres]
-
-    print('saving user genres and top artists' )
-    await update_user(db, request.session['user_id'],
-                       **{'top_artists': top_artists, 'genres': list(set(flattened_list))})
-    
-
-async def save_user_top_tracks(request: Request, db: Session = Depends(get_db)):
-    response = await request.state.http_client.get(f"{API_BASE_URL}me/top/tracks?time_range=long_term",
-                                               headers=get_header(request))
-    resp = response.json()
-    top_tracks = [track['name'] for track in resp['items']]
-    print('saving user top tracks')
-    await update_user(db, request.session['user_id'], **{'top_tracks': top_tracks})
-
-# todo : implement a recommendation endpoint and system

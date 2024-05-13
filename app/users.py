@@ -1,11 +1,11 @@
 import logging
 from typing import Any, Dict, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import User
 from app.schema import UserSchema
-
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,9 +22,33 @@ async def create_user(db: Session, user: UserSchema):
 async def get_user(db: Session, user_id: str):
     return db.query(User).filter(User.user_id == user_id).first()
 
+async def get_user_by_token(db: Session, token: str) -> User:
+   user: User = db.query(User).filter(User.auth_token == token).first()
+   return user
 
-async def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(User).offset(skip).limit(limit).all()
+async def get_users(db: Session, skip: int = 0, limit: int = 100, **filters):
+    query = db.query(User).offset(skip).limit(limit)
+
+    filter_conditions = []
+
+    for field, value in filters.items():
+        if hasattr(User, field):
+            filter_conditions.append(getattr(User, field) == value)
+        elif field == "username_contains":
+            filter_conditions.append(User.username.ilike(f"%{value}%"))
+        elif field.endswith("_in"):
+            column = getattr(User, field[:-3]) 
+            if isinstance(value, list):
+                filter_conditions.filter(column.in_(value))
+            else:
+                # Handle single value case
+                filter_conditions.append(column == value)
+
+
+    if filter_conditions:
+        query = query.filter(or_(*filter_conditions))
+
+    return query.all()
 
 
 async def get_user_friends(db: Session, user_id: str):
@@ -55,4 +79,24 @@ async def update_user(db: Session, user_id: int, **kwargs) -> None:
 
     db.commit()
     return user
+
+
+async def filter_users(db: Session, skip: int = 0, limit: int = 100, **filters):
+    query = db.query(User).offset(skip).limit(limit)
+
+    filter_conditions = []
+
+    for field, value in filters.items():
+        if hasattr(User, field):
+            filter_conditions.append(getattr(User, field) == value)
+        elif field == "username_contains":
+            filter_conditions.append(User.username.ilike(f"%{value}%"))
+        elif field.endswith("_in"):
+            column_name = field[:-3]  # Removing the "_in" suffix
+            filter_conditions.append(getattr(User, column_name).any(value))
+
+    if filter_conditions:
+        query = query.filter(or_(*filter_conditions))
+
+    return query.all()
 

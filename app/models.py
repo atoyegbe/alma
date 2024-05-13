@@ -20,6 +20,9 @@ class User(Base):
 
     user_id = Column(String, primary_key=True)
     username = Column(String, unique=True, index=True)
+    auth_token = Column(String, unique=True)
+    refresh_token = Column(String, unique=True)
+    token_expires_date = Column(DateTime)
     country = Column(String)
     genres = Column(ARRAY(String))
     top_artists = Column(ARRAY(String))
