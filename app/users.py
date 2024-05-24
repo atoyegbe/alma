@@ -5,10 +5,23 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.schema import UserSchema
+from app.schema import UserData, UserSchema
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
+def user_to_dict(user):
+    user_dict = {
+        "user_id": user.user_id,
+        "username": user.username,
+        "country": user.country,
+        "genres": user.genres,
+        "top_artists": user.top_artists,
+        "top_tracks": user.top_tracks,
+        "top_albums": user.top_albums,
+        "created_at": user.created_at,
+    }
+    return user_dict
 
 
 async def create_user(db: Session, user: UserSchema):
@@ -22,13 +35,14 @@ async def create_user(db: Session, user: UserSchema):
 async def get_user(db: Session, user_id: str):
     return db.query(User).filter(User.user_id == user_id).first()
 
-async def get_user_by_token(db: Session, token: str) -> User:
+async def get_user_by_token(db: Session, token: str) -> Optional[User]:
    user: User = db.query(User).filter(User.auth_token == token).first()
+   if not user:
+       return None
    return user
 
 async def get_users(db: Session, skip: int = 0, limit: int = 100, **filters):
     query = db.query(User).offset(skip).limit(limit)
-
     filter_conditions = []
 
     for field, value in filters.items():
@@ -48,7 +62,9 @@ async def get_users(db: Session, skip: int = 0, limit: int = 100, **filters):
     if filter_conditions:
         query = query.filter(or_(*filter_conditions))
 
-    return query.all()
+    res = query.all()
+    return [UserData(**user_to_dict(user)) for user in res]
+
 
 
 async def get_user_friends(db: Session, user_id: str):
