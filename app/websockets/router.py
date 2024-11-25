@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from uuid import UUID
 from typing import Optional
 
-from app.auth.auth import requires_auth, get_user_by_token
+from app.auth.auth import get_current_user, get_user_by_token
 from app.database.database import get_db
 from app.websockets.handlers import manager
 from app.models.schema import UserResponse

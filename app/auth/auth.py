@@ -1,8 +1,15 @@
+from typing import Optional
 
+from fastapi import HTTPException, Header
+from sqlalchemy.orm import Session
 
-async def requires_auth(auth_token: Optional[str] = Header(None)) -> UserSchema:
+from app.database.database import SessionLocal
+from app.users.users import get_user_by_token
+from app.models.datamodels import User
+
+async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
     """
-    Validate user
+    Validate user authentication token and return current user
     """
     if not auth_token:
         raise HTTPException(status_code=401, detail="No auth header")
@@ -13,13 +20,15 @@ async def requires_auth(auth_token: Optional[str] = Header(None)) -> UserSchema:
     token = auth_token[7:]
     if not token:
         raise HTTPException(status_code=401, detail="No token in auth header")
-
+    
     db = SessionLocal()
-    current_user = await get_user_by_token(db, token)
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Unable to authenticate user")
-    return current_user
-
+    try:
+        user = get_user_by_token(db, auth_token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid authentication token")
+        return user
+    finally:
+        db.close()
 
 def get_header(token: str):
     return {"Authorization": f"Bearer {token}"}

@@ -1,18 +1,22 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request, HTTPException, status
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy.orm import Session
 
+from app.database.database import db_dependency
+from app.auth.auth import get_current_user
+from app.models.datamodels import User
+from app.auth import auth
 from app.constant import TOKEN_URL, CLIENT_REDIRECT_URL
-from app.database import SessionLocal, engine
-from app.models import Base
-from app.schema import UserSchema
-from app.similarity import get_users_similiraity
-from app.users import (create_user, get_user, get_user_by_token, get_users,
-    update_user)
+from app.users.users import create_user, get_user, update_user_profile
+from datetime import datetime
+import base64
+import httpx
 
 
 router = APIRouter()
 
 @router.get("/callback")
-async def spotify_login(request: Request, db: Session = Depends(get_db)):
+async def spotify_login(request: Request, db: db_dependency):
     code_param = request.query_params.get("code")
     try:
         data = {

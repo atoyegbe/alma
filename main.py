@@ -6,27 +6,20 @@ from datetime import datetime
 from typing import Annotated, Any, Dict, List, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.constant import API_BASE_URL, AUTH_URL, REDIRECT_URL, TOKEN_URL, CLIENT_ID, CLIENT_SECRET
-from app.database import SessionLocal, engine
-from app.models import Base
-from app.schema import UserData, UserSchema
-from app.users import (create_user, get_user, get_user_by_token, get_users,
-                       update_user)
-
-from app.auth.auth import requires_auth, get_header
+from app.database.database import engine
+from app.models.datamodels import Base
 
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
 from app.playlists.router import router as playlist_router
 from app.users.router import router as user_router
-from app.moodrooms import router as moodroom_router
+from app.moodrooms.router import router as moodroom_router
 from app.websockets.router import router as websocket_router
 
 
