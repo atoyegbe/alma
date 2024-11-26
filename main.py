@@ -49,4 +49,4 @@ app.include_router(recommendation_router, prefix='/recommendation', tags=['Recom
 app.include_router(playlist_router, prefix='/playlists', tags=['Playlists'])
 app.include_router(user_router, prefix='/users', tags=['Users'])
 app.include_router(moodroom_router, prefix='/mood-rooms', tags=['Mood Rooms'])
-app.include_router(websocket_router, prefix='/ws', tags=['WebSocket'])
+app.include_router(websocket_router, prefix='/ws', tags=['Realtime'])
