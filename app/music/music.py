@@ -1,8 +1,11 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from uuid import UUID
+from collections import Counter
 
-from app.models.datamodels import User, MusicProfile
+from fastapi import HTTPException
+from sqlmodel import Session, select
+
+from app.models.sqlmodels import User, MusicProfile
 from app.models.schema import (
     Artist, TopArtistsResponse, TopGenresResponse,
     MutualMusicInterests, MusicRecommendationsResponse,
@@ -12,7 +15,7 @@ from app.helpers.spotify import get_spotify_client
 
 async def get_user_top_artists(
     db: Session,
-    user_id: str,
+    user_id: UUID,
     time_range: str = "medium_term",
     limit: int = 20
 ) -> TopArtistsResponse:
@@ -49,7 +52,7 @@ async def get_user_top_artists(
 
 async def get_user_top_genres(
     db: Session,
-    user_id: str,
+    user_id: UUID,
     time_range: str = "medium_term"
 ) -> TopGenresResponse:
     """Get user's top genres based on their top artists"""
@@ -57,27 +60,22 @@ async def get_user_top_genres(
     
     try:
         top_artists = await spotify.current_user_top_artists(
+            limit=50,  # Get more artists for better genre analysis
             time_range=time_range
         )
         
-        # Collect all genres from top artists
+        # Extract and count genres
         all_genres = []
         for artist in top_artists["items"]:
             all_genres.extend(artist["genres"])
         
         # Count genre occurrences and sort by frequency
-        genre_count = {}
-        for genre in all_genres:
-            genre_count[genre] = genre_count.get(genre, 0) + 1
         
-        sorted_genres = sorted(
-            genre_count.keys(),
-            key=lambda x: genre_count[x],
-            reverse=True
-        )
+        genre_counts = Counter(all_genres)
+        top_genres = [genre for genre, _ in genre_counts.most_common(20)]
         
         return TopGenresResponse(
-            genres=sorted_genres,
+            genres=top_genres,
             time_range=time_range
         )
     except Exception as e:
@@ -88,27 +86,24 @@ async def get_user_top_genres(
 
 async def get_music_recommendations(
     db: Session,
-    user_id: str,
+    user_id: UUID,
     limit: int = 20
 ) -> MusicRecommendationsResponse:
     """Get personalized music recommendations"""
     spotify = await get_spotify_client(user_id, db)
     
     try:
-        # Get user's top artists and genres for seeds
-        top_artists = await spotify.current_user_top_artists(limit=5)
-        artist_ids = [artist["id"] for artist in top_artists["items"][:2]]
+        # Get user's top artists and genres
+        top_artists_resp = await get_user_top_artists(db, user_id, limit=5)
+        top_genres_resp = await get_user_top_genres(db, user_id)
         
-        # Get genres from top artists
-        all_genres = []
-        for artist in top_artists["items"]:
-            all_genres.extend(artist["genres"])
-        unique_genres = list(set(all_genres))[:3]
+        seed_artists = [artist.id for artist in top_artists_resp.items[:2]]
+        seed_genres = top_genres_resp.genres[:3]
         
-        # Get recommendations
+        # Get recommendations from Spotify
         recommendations = await spotify.recommendations(
-            seed_artists=artist_ids,
-            seed_genres=unique_genres,
+            seed_artists=seed_artists,
+            seed_genres=seed_genres,
             limit=limit
         )
         
@@ -126,83 +121,95 @@ async def get_music_recommendations(
         
         return MusicRecommendationsResponse(
             tracks=tracks,
-            seed_artists=[artist["name"] for artist in top_artists["items"][:2]],
-            seed_genres=unique_genres
+            seed_artists=seed_artists,
+            seed_genres=seed_genres
         )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error fetching recommendations: {str(e)}"
+            detail=f"Error getting recommendations: {str(e)}"
         )
 
 async def get_mutual_music_interests(
     db: Session,
-    user_id: str,
-    other_user_id: str
+    user1_id: UUID,
+    user2_id: UUID
 ) -> MutualMusicInterests:
     """Get mutual music interests between two users"""
-    spotify = await get_spotify_client(user_id, db)
-    other_spotify = await get_spotify_client(other_user_id, db)
+    # Get both users' profiles
+    statement1 = select(MusicProfile).where(MusicProfile.user_id == user1_id)
+    statement2 = select(MusicProfile).where(MusicProfile.user_id == user2_id)
+    
+    profile1 = db.exec(statement1).first()
+    profile2 = db.exec(statement2).first()
+    
+    if not profile1 or not profile2:
+        raise HTTPException(status_code=404, detail="One or both user profiles not found")
+    
+    # Find mutual artists
+    mutual_artists = []
+    if profile1.top_artists and profile2.top_artists:
+        artists1 = {artist["id"]: artist for artist in profile1.top_artists}
+        artists2 = {artist["id"]: artist for artist in profile2.top_artists}
+        
+        mutual_artist_ids = set(artists1.keys()) & set(artists2.keys())
+        mutual_artists = [
+            Artist(
+                id=artist_id,
+                name=artists1[artist_id]["name"],
+                genres=artists1[artist_id]["genres"],
+                popularity=artists1[artist_id]["popularity"],
+                image_url=artists1[artist_id].get("image_url")
+            )
+            for artist_id in mutual_artist_ids
+        ]
+    
+    # Find mutual genres
+    mutual_genres = []
+    if profile1.genres and profile2.genres:
+        mutual_genres = list(set(profile1.genres) & set(profile2.genres))
+    
+    # Calculate compatibility score based on mutual interests
+    total_score = 0.0
+    if mutual_artists:
+        total_score += len(mutual_artists) * 0.6  # Weight artist matches more heavily
+    if mutual_genres:
+        total_score += len(mutual_genres) * 0.4
+    
+    # Normalize score to 0-100 range
+    compatibility_score = min(100, total_score * 10)
+    
+    return MutualMusicInterests(
+        mutual_artists=mutual_artists,
+        mutual_genres=mutual_genres,
+        compatibility_score=compatibility_score
+    )
+
+async def sync_user_spotify_data(user_id: UUID, db: Session):
+    """Sync user's Spotify data with our database"""
+    # Get user's profile
+    statement = select(MusicProfile).where(MusicProfile.user_id == user_id)
+    profile = db.exec(statement).first()
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="User profile not found")
     
     try:
-        # Get both users' top artists
-        user_artists_resp = await spotify.current_user_top_artists()
-        other_artists_resp = await other_spotify.current_user_top_artists()
+        # Get user's top artists and genres
+        top_artists = await get_user_top_artists(db, user_id, limit=50)
+        top_genres = await get_user_top_genres(db, user_id)
         
-        # Convert responses to Artist objects
-        user_artists = [
-            Artist(
-                id=artist["id"],
-                name=artist["name"],
-                genres=artist["genres"],
-                popularity=artist["popularity"],
-                image_url=artist["images"][0]["url"] if artist["images"] else None
-            )
-            for artist in user_artists_resp["items"]
-        ]
+        # Update profile with new data
+        profile.top_artists = [artist.model_dump() for artist in top_artists.items]
+        profile.genres = top_genres.genres
         
-        other_artists = [
-            Artist(
-                id=artist["id"],
-                name=artist["name"],
-                genres=artist["genres"],
-                popularity=artist["popularity"],
-                image_url=artist["images"][0]["url"] if artist["images"] else None
-            )
-            for artist in other_artists_resp["items"]
-        ]
+        # Save changes
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
         
-        # Find mutual artists
-        user_artist_ids = {artist.id for artist in user_artists}
-        mutual_artists = [
-            artist for artist in other_artists
-            if artist.id in user_artist_ids
-        ]
-        
-        # Get all genres
-        user_genres = set()
-        other_genres = set()
-        
-        for artist in user_artists:
-            user_genres.update(artist.genres)
-        for artist in other_artists:
-            other_genres.update(artist.genres)
-        
-        # Find mutual genres
-        mutual_genres = list(user_genres.intersection(other_genres))
-        
-        # Calculate compatibility score
-        total_items = len(user_artists) + len(user_genres)
-        mutual_items = len(mutual_artists) + len(mutual_genres)
-        compatibility_score = (mutual_items / total_items) * 100 if total_items > 0 else 0
-        
-        return MutualMusicInterests(
-            mutual_artists=mutual_artists,
-            mutual_genres=mutual_genres,
-            compatibility_score=round(compatibility_score, 2)
-        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error calculating mutual interests: {str(e)}"
+            detail=f"Error syncing Spotify data: {str(e)}"
         )

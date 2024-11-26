@@ -1,21 +1,28 @@
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.datamodels import User, Connection, MusicProfile
+from app.models.sqlmodels import User, Connection, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
 
-from .connections import get_user_connections, create_connection
+from .connections import (
+    get_user_connections,
+    create_connection,
+    accept_connection,
+    reject_connection,
+    delete_connection
+)
 
 router = APIRouter()
 recommender = MusicRecommender()
 
 
 @router.get("/connections", response_model=List[Connection])
-async def get_user_connections(
+async def list_user_connections(
     db: db_dependency,
     current_user: User = Depends(get_current_user),
 ) -> List[Connection]:
@@ -23,39 +30,41 @@ async def get_user_connections(
     return get_user_connections(db, current_user.id)
 
 @router.post("/request/{target_user_id}")
-async def create_connection(
-    target_user_id: str,
+async def request_connection(
+    target_user_id: UUID,
     db: db_dependency,
     current_user: User = Depends(get_current_user),
 ):
     """Create a connection request"""
-
-    create_connection(db, current_user.id, target_user_id)
-    return {"message": "Connection request sent"}
+    connection = create_connection(db, current_user.id, target_user_id)
+    return {"message": "Connection request sent", "connection": connection}
 
 @router.post("/accept/{connection_id}")
-async def accept_connection(
-    connection_id: str,
+async def accept_connection_request(
+    connection_id: UUID,
     db: db_dependency,
     current_user: User = Depends(get_current_user),
 ):
     """Accept a connection request"""
-    return accept_connection(db, connection_id)
+    connection = accept_connection(db, connection_id)
+    return {"message": "Connection accepted", "connection": connection}
 
 @router.post("/reject/{connection_id}")
-async def reject_connection(
-    connection_id: str,
+async def reject_connection_request(
+    connection_id: UUID,
     db: db_dependency,
     current_user: User = Depends(get_current_user),
 ):
     """Reject a connection request"""
-    return reject_connection(db, connection_id)
+    connection = reject_connection(db, connection_id)
+    return {"message": "Connection rejected", "connection": connection}
 
 @router.delete("/{connection_id}")
-async def delete_connection(
-    connection_id: str,
+async def remove_connection(
+    connection_id: UUID,
     db: db_dependency,
-
     current_user: User = Depends(get_current_user),
 ):
-    return delete_connection(db, connection_id)
+    """Remove an existing connection"""
+    result = delete_connection(db, connection_id)
+    return {"message": "Connection deleted"}

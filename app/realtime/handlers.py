@@ -1,6 +1,19 @@
-from fastapi import WebSocket, WebSocketDisconnect, Depends
-from typing import Dict, Set, Optional
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import Dict, Set
 from uuid import UUID
+from sqlmodel import SQLModel
+
+from app.websockets.models import (
+    BaseWebSocketMessage,
+    UserJoinedMessage,
+    UserLeftMessage,
+    ChatMessage,
+    TrackUpdateMessage,
+    NotificationMessage,
+    WebSocketUser
+)
+
+# TODO: consider using Redis for real-time updates
 
 class ConnectionManager:
     def __init__(self):
@@ -28,13 +41,14 @@ class ConnectionManager:
         if user_id in self.notification_connections:
             del self.notification_connections[user_id]
 
-    async def broadcast_to_room(self, room_id: UUID, message: dict):
+    async def broadcast_to_room(self, room_id: UUID, message: BaseWebSocketMessage):
         """Send message to all users in a room"""
         if room_id in self.room_connections:
             disconnected_ws = set()
+            message_dict = message.dict()
             for websocket in self.room_connections[room_id]:
                 try:
-                    await websocket.send_json(message)
+                    await websocket.send_json(message_dict)
                 except WebSocketDisconnect:
                     disconnected_ws.add(websocket)
             
@@ -42,11 +56,11 @@ class ConnectionManager:
             for ws in disconnected_ws:
                 self.room_connections[room_id].remove(ws)
 
-    async def send_notification(self, user_id: UUID, message: dict):
+    async def send_notification(self, user_id: UUID, message: NotificationMessage):
         """Send notification to a specific user"""
         if user_id in self.notification_connections:
             try:
-                await self.notification_connections[user_id].send_json(message)
+                await self.notification_connections[user_id].send_json(message.dict())
             except WebSocketDisconnect:
                 await self.disconnect_from_notifications(user_id)
 
