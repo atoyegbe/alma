@@ -103,7 +103,7 @@ async def refresh_token(refresh_token: str, request: Request):
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
-# todo: Handle proper logout
+# TODO: : Handle proper logout
 @router.get("/logout")
 async def logout(request: Request):
     request.session.clear()

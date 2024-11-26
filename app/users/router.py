@@ -5,7 +5,7 @@ from typing import List
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
 from app.models.datamodels import User, MusicProfile
-from app.models.schema import UserUpdate, MusicProfileResponse, UserResponse
+from app.models.schema import UserUpdate, MusicProfileResponse, UserResponse, SocialLinks
 from app.users import users
 
 router = APIRouter()

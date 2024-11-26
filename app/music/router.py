@@ -86,9 +86,9 @@ async def sync_spotify_data(
 ):
     """Sync user's Spotify data"""
     await music.sync_user_spotify_data(current_user.id, db)
-    return {"message": "Music profile updated successfully"}
+    return {"message": "Spotify data synced successfully"}
 
-@router.get("/profile/metrics")
+@router.get("/profile/metrics", response_model=MusicProfile)
 async def get_profile_metrics(
     db: db_dependency,
     current_user: User = Depends(get_current_user)
@@ -101,10 +101,4 @@ async def get_profile_metrics(
     if not profile:
         raise HTTPException(status_code=404, detail="Music profile not found")
     
-    return {
-        "favorite_decades": profile.favorite_decades,
-        "energy_score": profile.energy_score,
-        "danceability_score": profile.danceability_score,
-        "diversity_score": profile.diversity_score,
-        "obscurity_score": profile.obscurity_score
-    }
+    return profile

@@ -3,6 +3,37 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, Field
 
+
+
+# MusicProfile Schemas
+class MusicProfileBase(BaseModel):
+    """Base music profile attributes"""
+    user_id: UUID
+    top_artists: List[Dict[str, Any]]
+    top_genres: List[str]
+    music_soul_level: int
+
+    class Config:
+        orm_mode = True
+
+class MusicProfileCreate(MusicProfileBase):
+    """Attributes required to create a music profile"""
+    pass
+
+class MusicProfileUpdate(BaseModel):
+    """Attributes that can be updated in a music profile"""
+    top_artists: Optional[List[Dict[str, Any]]] = None
+    top_genres: Optional[List[str]] = None
+    music_soul_level: Optional[int] = None
+
+class MusicProfileResponse(MusicProfileBase):
+    """Full music profile response including system fields"""
+    id: UUID
+    last_updated: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 # Social Links Schema
 class SocialLinks(BaseModel):
     """Pydantic model for social media links"""
@@ -75,33 +106,6 @@ class MoodRoomResponse(MoodRoomBase):
     class Config:
         from_attributes = True
 
-# MusicProfile Schemas
-class MusicProfileBase(BaseModel):
-    """Base music profile attributes"""
-    user_id: UUID
-    top_artists: List[Dict[str, Any]]
-    top_genres: List[str]
-    music_soul_level: int
-
-    class Config:
-        orm_mode = True
-
-class MusicProfileCreate(MusicProfileBase):
-    """Attributes required to create a music profile"""
-    pass
-
-class MusicProfileUpdate(BaseModel):
-    """Attributes that can be updated in a music profile"""
-    top_artists: Optional[List[Dict[str, Any]]] = None
-    top_genres: Optional[List[str]] = None
-    music_soul_level: Optional[int] = None
-
-class MusicProfileResponse(MusicProfileBase):
-    """Full music profile response including system fields"""
-    id: UUID
-    last_updated: datetime
-    created_at: datetime
-
 # Playlist Schemas
 class PlaylistBase(BaseModel):
     name: str
@@ -166,3 +170,15 @@ class MusicRecommendationsResponse(BaseModel):
     tracks: List[TrackRecommendation]
     seed_artists: List[str]
     seed_genres: List[str]
+
+class Metrics(BaseModel):
+    energy_score: float
+    danceability_score: float
+    diversity_score: float
+    obscurity_score: float
+    favorite_decades: List[str]
+    listening_patterns: Dict[str, Any]
+    listening_history: List[Dict[str, Any]]
+
+    class Config:
+        orm_mode = True

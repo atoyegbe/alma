@@ -3,6 +3,9 @@ from datetime import datetime
 import statistics
 from collections import Counter
 
+from app.models.schema import Metrics
+
+
 class MusicProfileAnalyzer:
     def __init__(self, spotify_client):
         self.spotify = spotify_client
@@ -174,7 +177,7 @@ class MusicProfileAnalyzer:
         # Weighted average
         return int((artist_obscurity * 0.4) + (track_obscurity * 0.4) + (mainstream_score * 0.2))
     
-    async def get_complete_profile_metrics(self) -> Dict[str, Any]:
+    async def get_complete_profile_metrics(self) -> Metrics:
         """
         Calculate all profile metrics in one go.
         Returns a complete profile including all metrics and patterns.
@@ -212,4 +215,4 @@ class MusicProfileAnalyzer:
             )
         }
         
-        return metrics
+        return Metrics(**metrics)

@@ -33,32 +33,10 @@ async def get_recommended_users(
         return []
     
     # Convert profiles to dictionaries
-    target_profile = {
-        "id": current_user.id,
-            "genres": current_profile.genres,
-            "top_artists": current_profile.top_artists,
-            "top_tracks": current_profile.top_tracks,
-            "favorite_decades": current_profile.favorite_decades,
-            "energy_score": current_profile.energy_score,
-            "danceability_score": current_profile.danceability_score,
-            "diversity_score": current_profile.diversity_score,
-            "obscurity_score": current_profile.obscurity_score,
-            "listening_history": current_profile.listening_history
-    }
-    
+    target_profile = current_profile.to_dict()
+
     other_profiles_dict = [
-        {
-            "id": profile.user_id,
-            "genres": profile.genres,
-            "top_artists": profile.top_artists,
-            "top_tracks": profile.top_tracks,
-            "favorite_decades": profile.favorite_decades,
-            "energy_score": profile.energy_score,
-            "danceability_score": profile.danceability_score,
-            "diversity_score": profile.diversity_score,
-            "obscurity_score": profile.obscurity_score,
-            "listening_history": profile.listening_history
-        }
+        profile.to_dict()
         for profile in other_profiles
     ]
     
@@ -102,31 +80,8 @@ async def get_user_compatibility(
         raise HTTPException(status_code=404, detail="Music profile not found")
     
     # Convert profiles to dictionaries
-    profile1 = {
-        "id": current_user.id,
-        "genres": user1_profile.genres,
-        "top_artists": user1_profile.top_artists,
-        "top_tracks": user1_profile.top_tracks,
-        "favorite_decades": user1_profile.favorite_decades,
-        "energy_score": user1_profile.energy_score,
-        "danceability_score": user1_profile.danceability_score,
-        "diversity_score": user1_profile.diversity_score,
-        "obscurity_score": user1_profile.obscurity_score,
-        "listening_history": user1_profile.listening_history
-    }
-    
-    profile2 = {
-        "id": user_id,
-        "genres": user2_profile.genres,
-        "top_artists": user2_profile.top_artists,
-        "top_tracks": user2_profile.top_tracks,
-        "favorite_decades": user2_profile.favorite_decades,
-        "energy_score": user2_profile.energy_score,
-        "danceability_score": user2_profile.danceability_score,
-        "diversity_score": user2_profile.diversity_score,
-        "obscurity_score": user2_profile.obscurity_score,
-        "listening_history": user2_profile.listening_history
-    }
+    profile1 = user1_profile.to_dict()
+    profile2 = user2_profile.to_dict()
     
     # Get detailed compatibility analysis
     compatibility = recommender.calculate_overall_similarity(profile1, profile2)

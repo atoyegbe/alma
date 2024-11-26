@@ -10,7 +10,7 @@ JWT_EXP_DELTA_SECONDS = 60 * 60 * 24 * 3  # 3 days
 # JWT_SHORT_EXP_DELTA_SECONDS = 60 * 60 * 12  # 12 hours
 JWT_SHORT_EXP_DELTA_SECONDS = 144000
 
-# todo: ability to login with apple music.
+# TODO: : ability to login with apple music.
 apple_kid = os.getenv('APPLE_KID', '')
 # Payload (you can customize this according to your requirements)
 header = {

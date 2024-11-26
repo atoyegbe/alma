@@ -12,6 +12,7 @@ from app.auth.auth import get_header
 
 from app.models.datamodels import MusicProfile
 from app.music.profile_analyzer import MusicProfileAnalyzer
+from app.models.schema import Metrics
 
 
 class SpotifyClient:
@@ -283,7 +284,7 @@ async def sync_user_spotify_data(user_id: str, db: Session) -> None:
         await update_user(db, user_id, **user_update)
         
         # Calculate all profile metrics
-        profile_metrics = await analyzer.get_complete_profile_metrics()
+        profile_metrics: Metrics = await analyzer.get_complete_profile_metrics()
         
         # Get or create music profile
         music_profile = db.query(MusicProfile).filter(MusicProfile.user_id == user_id).first()
@@ -295,12 +296,12 @@ async def sync_user_spotify_data(user_id: str, db: Session) -> None:
         music_profile.top_artists = top_artists
         music_profile.top_tracks = top_tracks
         music_profile.genres = genres
-        music_profile.favorite_decades = profile_metrics["favorite_decades"]
-        music_profile.energy_score = profile_metrics["energy_score"]
-        music_profile.danceability_score = profile_metrics["danceability_score"]
-        music_profile.diversity_score = profile_metrics["diversity_score"]
-        music_profile.obscurity_score = profile_metrics["obscurity_score"]
-        music_profile.listening_history = profile_metrics["listening_patterns"]
+        music_profile.favorite_decades = profile_metrics.favorite_decades
+        music_profile.energy_score = profile_metrics.energy_score
+        music_profile.danceability_score = profile_metrics.danceability_score
+        music_profile.diversity_score = profile_metrics.diversity_score
+        music_profile.obscurity_score = profile_metrics.obscurity_score
+        music_profile.listening_history = profile_metrics.listening_patterns
         music_profile.updated_at = datetime.utcnow()
         
         # Commit all changes
