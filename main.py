@@ -9,11 +9,10 @@ import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.database.database import engine
-from app.models.datamodels import Base
+from app.database.database import create_db_and_tables
+from app.models.sqlmodels import *
 
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
@@ -25,12 +24,12 @@ from app.websockets.router import router as websocket_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    create_db_and_tables()
     app.state.http_client = httpx.AsyncClient()
     yield
     await app.state.http_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
-Base.metadata.create_all(bind=engine)
 
 all_origins = ['*']
 
