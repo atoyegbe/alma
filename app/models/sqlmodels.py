@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, ARRAY, String, JSON
+from sqlalchemy import DateTime
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -29,6 +30,7 @@ class User(SQLModel, table=True):
     music_profile: Optional["MusicProfile"] = Relationship(back_populates="user")
     connections: List["Connection"] = Relationship(back_populates="user")
     mood_rooms: List["MoodRoom"] = Relationship(back_populates="owner")
+    playlists: List["Playlist"] = Relationship(back_populates="user")
 
 
 class MusicProfile(SQLModel, table=True):
@@ -97,3 +99,36 @@ class MoodRoom(SQLModel, table=True):
     
     # Relationships
     owner: User = Relationship(back_populates="mood_rooms")
+
+
+class Playlist(SQLModel, table=True):
+    __tablename__ = "playlists"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    name: str
+    description: Optional[str] = None
+    public: bool = True
+    spotify_id: str = Field(unique=True, index=True)
+    tracks: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, onupdate=datetime.utcnow)
+    )
+
+    user: Optional["User"] = Relationship(back_populates="playlists")
+
+    def to_response(self) -> Dict[str, Any]:
+        """Convert to response format matching Spotify's playlist format"""
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "description": self.description,
+            "public": self.public,
+            "tracks": {"items": self.tracks},
+            "owner": {"id": str(self.user_id)},
+            "spotify_id": self.spotify_id,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }

@@ -74,3 +74,28 @@ class Metrics(SQLModel):
     favorite_decades: List[str]
     listening_patterns: Dict[str, Any]
     listening_history: List[Dict[str, Any]]
+
+# Playlist models for request/response validation
+class PlaylistBase(SQLModel):
+    name: str
+    description: Optional[str] = None
+    public: Optional[bool] = True
+    tracks: Optional[List[str]] = None
+
+class PlaylistCreate(PlaylistBase):
+    pass
+
+class PlaylistUpdate(PlaylistBase):
+    name: Optional[str] = None
+    public: Optional[bool] = None
+
+class PlaylistResponse(PlaylistBase):
+    id: str
+    owner: Dict[str, str]
+    spotify_id: str
+    created_at: str
+    updated_at: str
+    tracks: Dict[str, List[str]]
+
+    class Config:
+        orm_mode = True
