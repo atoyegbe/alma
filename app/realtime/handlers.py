@@ -3,7 +3,7 @@ from typing import Dict, Set
 from uuid import UUID
 from sqlmodel import SQLModel
 
-from app.websockets.models import (
+from app.realtime.models import (
     BaseWebSocketMessage,
     UserJoinedMessage,
     UserLeftMessage,

@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select, and_
 
 from app.recommendation.music_recommender import MusicRecommender
-from app.models.sqlmodels import Connection, MusicProfile
+from app.models.models import Connection, MusicProfile
 
 
 recommender = MusicRecommender()

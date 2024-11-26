@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.sqlmodels import User, MusicProfile
+from app.models.models import User, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
 from app.recommendation.datamodels import RecommendedUser, UserCompatibility, SharedMusic
 

@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models.sqlmodels import User, MusicProfile
+from app.models.models import User, MusicProfile
 from app.models.schema import SocialLinks
 from app.recommendation.music_recommender import MusicRecommender
 

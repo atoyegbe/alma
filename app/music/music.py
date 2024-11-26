@@ -5,7 +5,7 @@ from collections import Counter
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models.sqlmodels import User, MusicProfile
+from app.models.models import User, MusicProfile
 from app.models.schema import (
     Artist, TopArtistsResponse, TopGenresResponse,
     MutualMusicInterests, MusicRecommendationsResponse,

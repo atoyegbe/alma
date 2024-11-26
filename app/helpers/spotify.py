@@ -10,7 +10,7 @@ from app.users.users import get_user_by_token, update_user_profile, get_user
 from app.constant import API_BASE_URL
 from app.auth.auth import get_header
 
-from app.models.datamodels import MusicProfile
+from app.models.models import MusicProfile
 from app.music.profile_analyzer import MusicProfileAnalyzer
 from app.models.schema import Metrics
 

@@ -6,8 +6,8 @@ from sqlmodel import Session, select
 
 from app.auth.auth import get_current_user
 from app.database.database import db_dependency
-from app.models.sqlmodels import User, Playlist
-from app.models.schema import PlaylistCreate, PlaylistUpdate, PlaylistResponse, TrackResponse
+from app.models.models import User, Playlist
+from app.models.schema import PlaylistCreate, PlaylistUpdate, PlaylistResponse
 from app.helpers.spotify import get_spotify_client
 
 from app.playlists.playlists import (
@@ -101,19 +101,19 @@ async def delete_playlist(
     
     return {"message": "Playlist deleted successfully"}
 
-@router.get("/{playlist_id}/tracks", response_model=List[TrackResponse])
-async def get_playlist_tracks(
-    playlist_id: UUID,
-    db: db_dependency,
-    current_user: User = Depends(get_current_user)
-):
-    """Get tracks in a playlist"""
-    # Verify playlist exists
-    statement = select(Playlist).where(Playlist.id == playlist_id)
-    playlist = db.exec(statement).first()
-    if not playlist:
-        raise HTTPException(status_code=404, detail="Playlist not found")
+# @router.get("/{playlist_id}/tracks", response_model=List[TrackResponse])
+# async def get_playlist_tracks(
+#     playlist_id: UUID,
+#     db: db_dependency,
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """Get tracks in a playlist"""
+#     # Verify playlist exists
+#     statement = select(Playlist).where(Playlist.id == playlist_id)
+#     playlist = db.exec(statement).first()
+#     if not playlist:
+#         raise HTTPException(status_code=404, detail="Playlist not found")
     
-    spotify = await get_spotify_client(current_user.id, db)
-    tracks = await spotify.get_playlist_tracks(str(playlist_id))
-    return tracks
+#     spotify = await get_spotify_client(current_user.id, db)
+#     tracks = await spotify.get_playlist_tracks(str(playlist_id))
+#     return tracks

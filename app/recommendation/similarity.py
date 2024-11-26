@@ -2,7 +2,7 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from app.models.datamodels import User
+from app.models.models import User
 
 
 def get_users_similiraity(user1: User, user2: User) -> float:

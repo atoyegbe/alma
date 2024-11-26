@@ -2,8 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, ARRAY, String, JSON
-from sqlalchemy import DateTime
+from sqlalchemy import Column, ARRAY, String, JSON, DateTime
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -110,7 +109,7 @@ class Playlist(SQLModel, table=True):
     description: Optional[str] = None
     public: bool = True
     spotify_id: str = Field(unique=True, index=True)
-    tracks: List[str] = Field(default_factory=list)
+    tracks: List[str] = Field(default_factory=list, sa_column=Column(ARRAY(String)))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,

@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.models.schema import PlaylistResponse, PlaylistCreate, PlaylistUpdate
-from app.models.sqlmodels import Playlist, User
+from app.models.models import Playlist, User
 from app.helpers.spotify import get_spotify_client
 
 

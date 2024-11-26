@@ -12,14 +12,13 @@ from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.database.database import create_db_and_tables
-from app.models.sqlmodels import *
 
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
 from app.playlists.router import router as playlist_router
 from app.users.router import router as user_router
 from app.moodrooms.router import router as moodroom_router
-from app.websockets.router import router as websocket_router
+from app.realtime.router import router as websocket_router
 
 
 @asynccontextmanager

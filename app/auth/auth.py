@@ -1,11 +1,10 @@
 from typing import Optional
 
 from fastapi import HTTPException, Header
-from sqlalchemy.orm import Session
 
-from app.database.database import SessionLocal
+from app.database.database import db_dependency
 from app.users.users import get_user_by_token
-from app.models.datamodels import User
+from app.models.models import User
 
 async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
     """
@@ -21,7 +20,7 @@ async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
     if not token:
         raise HTTPException(status_code=401, detail="No token in auth header")
     
-    db = SessionLocal()
+    db = db_dependency
     try:
         user = get_user_by_token(db, auth_token)
         if not user:

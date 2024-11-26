@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy.orm import Session
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.datamodels import User
+from app.models.models import User
 from app.auth import auth
 from app.constant import TOKEN_URL, CLIENT_REDIRECT_URL
 from app.users.users import create_user, get_user, update_user_profile

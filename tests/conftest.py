@@ -1,99 +1,64 @@
-import asyncio
-import os
 from typing import Generator
+import os
+import asyncio
 from datetime import datetime
 import uuid
+import sys
+
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
-from app.database.database import Base, get_db
+from app.database.database import get_db
 from app.main import app
 
-# Database URLs
-POSTGRES_TEST_URL = "postgresql://postgres:test@localhost:5432/alma_test"
-SQLITE_TEST_URL = "sqlite:///./test.db"
+# Use test database
+TEST_DATABASE_URL = "postgresql://postgres:test@localhost:5432/alma_test"
 
-def get_database_url(request) -> str:
-    """
-    Determine which database to use based on test markers.
-    Use PostgreSQL for integration tests and SQLite for unit tests.
-    """
-    markers = [marker.name for marker in request.node.iter_markers()]
-    return POSTGRES_TEST_URL if "integration" in markers else SQLITE_TEST_URL
+# Create test engine
+engine_test = create_engine(
+    TEST_DATABASE_URL,
+    echo=True  # Set to False to reduce test output noise
+)
 
 @pytest.fixture(scope="session")
-def engine_integration():
-    """Create a PostgreSQL test database engine for integration tests."""
-    engine = create_engine(
-        POSTGRES_TEST_URL,
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-
-@pytest.fixture(scope="session")
-def engine_unit():
-    """Create a SQLite test database engine for unit tests."""
-    engine = create_engine(
-        SQLITE_TEST_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    
-    # Enable foreign key support for SQLite
-    def _fk_pragma_on_connect(dbapi_con, con_record):
-        dbapi_con.execute('pragma foreign_keys=ON')
-    
-    event.listen(engine, 'connect', _fk_pragma_on_connect)
-    
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-    if os.path.exists("./test.db"):
-        os.remove("./test.db")
+def db_engine():
+    """Create test database engine"""
+    SQLModel.metadata.create_all(engine_test)
+    yield engine_test
+    SQLModel.metadata.drop_all(engine_test)
 
 @pytest.fixture(scope="function")
-def engine(request, engine_integration, engine_unit):
-    """Provide the appropriate engine based on test type."""
-    markers = [marker.name for marker in request.node.iter_markers()]
-    return engine_integration if "integration" in markers else engine_unit
+def db(db_engine) -> Generator[Session, None, None]:
+    """Create a fresh database session for each test"""
+    connection = db_engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
 
 @pytest.fixture(scope="function")
-def db_session(engine):
-    """Create a fresh database session for each test."""
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
+def client(db) -> Generator[TestClient, None, None]:
+    """Create a test client with database session override"""
+    def get_test_db():
+        yield db
 
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create a test client with a fresh database session."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    app.dependency_overrides[get_db] = get_test_db
+    with TestClient(main_app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
-@pytest.fixture(scope="function")
-def async_client(client):
-    """Create an async test client."""
-    return client
+@pytest.fixture(autouse=True)
+def setup_db(db: Session):
+    """Automatically set up and tear down database for each test"""
+    SQLModel.metadata.create_all(engine_test)
+    yield
+    db.rollback()
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -103,9 +68,9 @@ def event_loop():
     loop.close()
 
 @pytest.fixture(scope="function")
-async def sample_user(db_session):
+async def sample_user(db):
     """Create a sample user for testing."""
-    from app.models.datamodels import User
+    from app.models.models import User
     user = User(
         id=str(uuid.uuid4()),
         username="test_user",
@@ -114,7 +79,7 @@ async def sample_user(db_session):
         is_active=True,
         created_at=datetime.utcnow()
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user

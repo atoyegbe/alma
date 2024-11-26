@@ -4,9 +4,9 @@ from typing import Optional
 from sqlmodel import Session
 
 from app.auth.auth import get_current_user, get_user_by_token
-from app.database.database import get_session
-from app.websockets.handlers import manager
-from app.websockets.models import (
+from app.database.database import get_db as get_session
+from app.realtime.handlers import manager
+from app.realtime.models import (
     UserJoinedMessage,
     UserLeftMessage,
     ChatMessage,
