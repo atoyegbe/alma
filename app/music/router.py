@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import Optional
+from uuid import UUID
+
+from sqlmodel import select
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.datamodels import User, MusicProfile
+from app.models.sqlmodels import User, MusicProfile
 from app.models.schema import (
     TopArtistsResponse, TopGenresResponse,
     MutualMusicInterests, MusicRecommendationsResponse
@@ -62,12 +64,12 @@ async def get_recommendations(
 
 @router.get("/mutual/{user_id}", response_model=MutualMusicInterests)
 async def get_mutual_interests(
-    user_id: str,
+    user_id: UUID,
     db: db_dependency,
     current_user: User = Depends(get_current_user)
 ):
     """Get mutual music interests with another user"""
-    if str(current_user.id) == user_id:
+    if current_user.id == user_id:
         raise HTTPException(
             status_code=400,
             detail="Cannot get mutual interests with yourself"
@@ -94,9 +96,9 @@ async def get_profile_metrics(
     current_user: User = Depends(get_current_user)
 ):
     """Get user's music profile metrics"""
-    profile = db.query(MusicProfile).filter(
-        MusicProfile.user_id == current_user.id
-    ).first()
+
+    statement = select(MusicProfile).where(MusicProfile.user_id == current_user.id)
+    profile = db.exec(statement).first()
     
     if not profile:
         raise HTTPException(status_code=404, detail="Music profile not found")

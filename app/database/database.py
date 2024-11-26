@@ -1,28 +1,19 @@
-from typing import Annotated
+from typing import Annotated, Generator
 from fastapi import Depends
-
-
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import Session, SQLModel, create_engine
 
 DATABASE_URL = "postgresql://postgres:test@localhost:5432/alma"
 
 engine = create_engine(
-    DATABASE_URL
+    DATABASE_URL,
+    echo=True  # Set to False in production
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
-metadata = Base.metadata
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_db() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session
 
 db_dependency = Annotated[Session, Depends(get_db)]
