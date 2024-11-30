@@ -114,72 +114,71 @@ class TestConnections:
 
         # Assert
         assert connection.user_id == test_user.id
-        # assert connection.connected_user_id == test_target_user.id
-        # assert connection.status == "pending"
-        # assert connection.compatibility_score > 0
-        # assert "rock" in connection.shared_genres
-        # assert "artist2" in connection.shared_artists
+        assert connection.connected_user_id == test_target_user.id
+        assert connection.status == "pending"
+        assert "afrobeats" in connection.shared_genres
+        assert "wizkid" in connection.shared_artists
 
-    # def test_create_duplicate_connection(self, db: Session, test_user, 
-    #                                    test_target_user, test_connection):
-    #     # Setup
-    #     db.add(test_connection)
-    #     db.commit()
+    def test_create_duplicate_connection(self, db: Session, test_user, 
+                                       test_target_user, test_connection):
+        # Setup
+        db.add(test_connection)
+        db.commit()
 
-    #     # Execute & Assert
-    #     with pytest.raises(HTTPException) as exc_info:
-    #         create_connection(db, test_user.id, test_target_user.id)
-    #     assert exc_info.value.status_code == 400
-    #     assert "Connection already exists" in str(exc_info.value.detail)
+        # Execute & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            create_connection(db, test_user.id, test_target_user.id)
+        assert exc_info.value.status_code == 400
+        assert "Connection already exists" in str(exc_info.value.detail)
 
-    # def test_accept_connection(self, db: Session, test_connection):
-    #     # Setup
-    #     db.add(test_connection)
-    #     db.commit()
+    def test_accept_connection(self, db: Session, test_connection):
+        # Setup
+        db.add(test_connection)
+        db.commit()
 
-    #     # Execute
-    #     updated_connection = accept_connection(db, test_connection.id)
+        # Execute
+        updated_connection = accept_connection(db, test_connection.id)
 
-    #     # Assert
-    #     assert updated_connection.status == "accepted"
+        # Assert
+        assert updated_connection.status == "accepted"
 
-    # def test_accept_nonexistent_connection(self, db: Session):
-    #     # Execute & Assert
-    #     with pytest.raises(HTTPException) as exc_info:
-    #         accept_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
-    #     assert exc_info.value.status_code == 404
+    def test_accept_nonexistent_connection(self, db: Session):
+        # Execute & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            accept_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
+        assert exc_info.value.status_code == 404
 
-    # def test_reject_connection(self, db: Session, test_connection):
-    #     # Setup
-    #     db.add(test_connection)
-    #     db.commit()
+    def test_reject_connection(self, db: Session, test_connection):
+        # Setup
+        db.add(test_connection)
+        db.commit()
 
-    #     # Execute
-    #     updated_connection = reject_connection(db, test_connection.id)
+        # Execute
+        updated_connection = reject_connection(db, test_connection.id)
 
-    #     # Assert
-    #     assert updated_connection.status == "rejected"
+        # Assert
+        assert updated_connection.status == "rejected"
 
-    # def test_reject_nonexistent_connection(self, db: Session):
-    #     # Execute & Assert
-    #     with pytest.raises(HTTPException) as exc_info:
-    #         reject_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
-    #     assert exc_info.value.status_code == 404
+    def test_reject_nonexistent_connection(self, db: Session):
+        # Execute & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            reject_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
+        assert exc_info.value.status_code == 404
 
-    # def test_delete_connection(self, db: Session, test_connection):
-    #     # Setup
-    #     db.add(test_connection)
-    #     db.commit()
+    def test_delete_connection(self, db: Session, test_connection):
+        # Setup
+        db.add(test_connection)
+        db.commit()
 
-    #     # Execute
-    #     delete_connection(db, test_connection.id)
+        # Execute
+        delete_connection(db, test_connection.id)
 
-    #     # Assert
-    #     connection = db.get(Connection, test_connection.id)
-    #     assert connection is None
+        # Assert
+        connection = db.get(Connection, test_connection.id)
+        assert connection is None
 
-    # def test_delete_nonexistent_connection(self, db: Session):
-    #     # Execute & Assert
-    #     with pytest.raises(HTTPException) as exc_info:
-    #         delete_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
-    #     assert exc_info.value.status_code == 404
+    def test_delete_nonexistent_connection(self, db: Session):
+        # Execute & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            delete_connection(db, UUID('00000000-0000-0000-0000-000000000000'))
+        assert exc_info.value.status_code == 404
