@@ -96,6 +96,24 @@ class SpotifyClient:
             response.raise_for_status()
             return response.json()
 
+    async def current_user_recently_played(self, limit: int = 50) -> Dict[str, Any]:
+        """Get the current user's recently played tracks
+        
+        Args:
+            limit: The maximum number of items to return (max: 50)
+            
+        Returns:
+            A dictionary containing the recently played tracks
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{API_BASE_URL}me/player/recently-played",
+                headers=self.headers,
+                params={"limit": min(limit, 50)}  # Ensure limit doesn't exceed Spotify's max
+            )
+            response.raise_for_status()
+            return response.json()
+
     async def create_playlist(
         self,
         user_id: str,

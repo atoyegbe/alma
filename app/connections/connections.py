@@ -41,16 +41,16 @@ def create_connection(db: Session, user_id: UUID, target_user_id: UUID) -> Conne
     # TODO: : we probably don't need to calculate compatability at this point
     # we are alreadysending compatability when recommending users in `/recommendations/users` endpoint
     # Calculate compatibility score
-    current_profile_dict = current_profile.model_dump()
-    target_profile_dict = target_profile.model_dump()
+    current_profile_dict = current_profile.dict()
+    target_profile_dict = target_profile.dict()
     compatibility = recommender.calculate_overall_similarity(current_profile_dict, target_profile_dict)
     
     # Find shared music elements
     shared_genres = list(set(current_profile.genres) & set(target_profile.genres))
-    shared_artists = list(set(a["id"] for a in current_profile.top_artists) & 
-                         set(a["id"] for a in target_profile.top_artists))
-    shared_tracks = list(set(t["id"] for t in current_profile.top_tracks) & 
-                        set(t["id"] for t in target_profile.top_tracks))
+    shared_artists = list(set(current_profile.top_artists) & 
+                         set(target_profile.top_artists))
+    shared_tracks = list(set(current_profile.top_tracks) & 
+                        set(target_profile.top_tracks))
     
     # Create new connection
     new_connection = Connection(

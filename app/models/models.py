@@ -27,7 +27,10 @@ class User(SQLModel, table=True):
     
     # Relationships
     music_profile: Optional["MusicProfile"] = Relationship(back_populates="user")
-    connections: List["Connection"] = Relationship(back_populates="user")
+    connections: List["Connection"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"foreign_keys": "Connection.user_id"}
+    )
     mood_rooms: List["MoodRoom"] = Relationship(back_populates="owner")
     playlists: List["Playlist"] = Relationship(back_populates="user")
 
@@ -80,9 +83,8 @@ class Connection(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    user: User = Relationship(back_populates="connections", sa_relationship_kwargs={"foreign_keys": [user_id]})
-    connected_user: User = Relationship(sa_relationship_kwargs={"foreign_keys": [connected_user_id]})
-
+    user: User = Relationship(back_populates="connections", sa_relationship_kwargs={"foreign_keys": "[Connection.user_id]"})
+    connected_user: User = Relationship(sa_relationship_kwargs={"foreign_keys": "[Connection.connected_user_id]"})
 
 class MoodRoom(SQLModel, table=True):
     __tablename__ = "mood_rooms"

@@ -57,14 +57,15 @@ class MusicRecommender:
         similarities["genre_similarity"] = self.calculate_text_similarity(genres1, genres2)
         
         # Artist similarity using cosine similarity
-        artists1 = [artist["name"] for artist in profile1.get("top_artists", [])]
-        artists2 = [artist["name"] for artist in profile2.get("top_artists", [])]
+        artists1 = [artist for artist in profile1.get("top_artists", [])]
+        artists2 = [artist for artist in profile2.get("top_artists", [])]
         similarities["artist_similarity"] = self.calculate_text_similarity(artists1, artists2)
         
         # Track similarity using cosine similarity
-        tracks1 = [track["name"] for track in profile1.get("top_tracks", [])]
-        tracks2 = [track["name"] for track in profile2.get("top_tracks", [])]
+        tracks1 = [track for track in profile1.get("top_tracks", [])]
+        tracks2 = [track for track in profile2.get("top_tracks", [])]
         similarities["track_similarity"] = self.calculate_text_similarity(tracks1, tracks2)
+
         
         # Numeric profile metrics similarity
         metric_pairs = [
@@ -111,7 +112,7 @@ class MusicRecommender:
             similarities[key] * weight 
             for key, weight in weights.items()
         )
-        
+
         return {
             "overall_similarity": overall_similarity,
             "component_similarities": similarities
