@@ -12,23 +12,30 @@ from app.recommendation.datamodels import RecommendedUser, UserCompatibility, Sh
 router = APIRouter()
 recommender = MusicRecommender()
 
+
 @router.get("/recommendations/users", response_model=List[RecommendedUser])
 async def get_recommended_users(
     db: db_dependency, 
+    limit: int = 10,
+    min_score: float = 0.0,
+    genres: Optional[List[str]] = None,
     current_user: User = Depends(get_current_user),
 ):
     """Get recommended users based on music taste"""
     # Get current user's music profile
-    statement = select(MusicProfile).where(MusicProfile.user_id == current_user.id)
-    current_profile = db.exec(statement).first()
-    
+    current_profile = db.get(MusicProfile, current_user.id)
     if not current_profile:
         raise HTTPException(status_code=404, detail="Music profile not found")
     
     # Get all other users' profiles
+    # If genres contains values: The query filters based on the or_ conditions.
+    # If genres is empty: The 1 == 1 condition keeps the query valid without applying any additional filtering.
     statement = select(MusicProfile, User).where(
         MusicProfile.user_id != current_user.id,
-        User.id == MusicProfile.user_id
+        User.id == MusicProfile.user_id,
+        or_(
+             MusicProfile.genres.contains(genre) for genre in genres
+        ) if genres else (1 == 1)
     )
     results = db.exec(statement).all()
     
@@ -36,20 +43,20 @@ async def get_recommended_users(
         return []
     
     # Convert profiles to dictionaries
-    target_profile = current_profile.to_dict()
     other_profiles = []
     other_profiles_map = {}
     user_map = {}
     
     for profile, user in results:
-        other_profiles.append(profile.to_dict())
+        other_profiles.append(profile)
         other_profiles_map[str(user.id)] = profile
         user_map[str(user.id)] = user
     
     # Get recommendations
-    recommendations = recommender.get_user_recommendations(
-        target_profile,
-        other_profiles
+    recommendations: List[RecommendedUser] = recommender.get_user_recommendations(
+        current_profile,
+        other_profiles,
+        limit=limit
     )
     
     # Enhance recommendations with user details
@@ -58,36 +65,17 @@ async def get_recommended_users(
         user = user_map.get(rec["user_id"])
         if user:
             # Get shared music details for this user
-            shared_artists = set(a["id"] for a in current_profile.top_artists) & set(a["id"] for a in other_profiles_map[rec["user_id"]].top_artists)
-            shared_tracks = set(t["id"] for t in current_profile.top_tracks) & set(t["id"] for t in other_profiles_map[rec["user_id"]].top_tracks)
-            shared_genres = set(current_profile.genres) & set(other_profiles_map[rec["user_id"]].genres)
-            
-            shared_music = SharedMusic(
-                artists=[a for a in current_profile.top_artists if a["id"] in shared_artists],
-                tracks=[t for t in current_profile.top_tracks if t["id"] in shared_tracks],
-                genres=list(shared_genres)
+            shared_music = _get_shared_music(
+                current_profile, 
+                other_profiles_map[rec["user_id"]]
             )
+            rec.compatibility.shared_music = shared_music
             
-            compatibility = UserCompatibility(
-                overall_similarity=rec["similarity"],
-                genre_similarity=rec["details"]["genre_similarity"],
-                artist_similarity=rec["details"]["artist_similarity"],
-                diversity_similarity=rec["details"]["diversity_similarity"],
-                obscurity_similarity=rec["details"]["obscurity_similarity"],
-                decade_similarity=rec["details"]["decade_similarity"],
-                listening_pattern_similarity=rec["details"]["listening_pattern_similarity"],
-                shared_music=shared_music
-            )
+            rec.username = user.username
+            rec.display_name = user.display_name
+            rec.avatar_url = user.avatar_url
             
-            recommended_user = RecommendedUser(
-                user_id=str(user.id),
-                username=user.username,
-                display_name=user.display_name,
-                avatar_url=user.avatar_url,
-                similarity_score=rec["similarity"],
-                compatibility=compatibility
-            )
-            enhanced_recommendations.append(recommended_user)
+            enhanced_recommendations.append(rec)
     
     return enhanced_recommendations
 
@@ -117,23 +105,25 @@ async def get_user_compatibility(
     )
     
     # Add shared music details
-    shared_artists = set(a["id"] for a in current_profile.top_artists) & set(a["id"] for a in target_profile.top_artists)
-    shared_tracks = set(t["id"] for t in current_profile.top_tracks) & set(t["id"] for t in target_profile.top_tracks)
-    shared_genres = set(current_profile.genres) & set(target_profile.genres)
-    
-    shared_music = SharedMusic(
-        artists=[a for a in current_profile.top_artists if a["id"] in shared_artists],
-        tracks=[t for t in current_profile.top_tracks if t["id"] in shared_tracks],
-        genres=list(shared_genres)
-    )
+    shared_music = _get_shared_music(current_profile, target_profile)
     
     return UserCompatibility(
-        overall_similarity=similarity["overall"],
-        genre_similarity=similarity["genre_similarity"],
-        artist_similarity=similarity["artist_similarity"],
-        diversity_similarity=similarity["diversity_similarity"],
-        obscurity_similarity=similarity["obscurity_similarity"],
-        decade_similarity=similarity["decade_similarity"],
-        listening_pattern_similarity=similarity["listening_pattern_similarity"],
+        overall_similarity=similarity.overall_similarity,
+        genre_similarity=similarity.genre_similarity,
+        artist_similarity=similarity.artist_similarity,
+        diversity_similarity=similarity.diversity_similarity,
+        obscurity_similarity=similarity.obscurity_similarity,
+        decade_similarity=similarity.decade_similarity,
+        listening_pattern_similarity=similarity.listening_pattern_similarity,
         shared_music=shared_music
     )
+
+
+def _get_shared_music(profile1: MusicProfile, profile2: MusicProfile) -> SharedMusic:
+    """Calculate shared music between two profiles."""
+    shared_music = SharedMusic(
+        artists=list(set(profile1.top_artists) & set(profile2.top_artists)),
+        tracks=list(set(profile1.top_tracks) & set(profile2.top_tracks)),
+        genres=list(set(profile1.genres) & set(profile2.genres)),
+    )
+    return shared_music

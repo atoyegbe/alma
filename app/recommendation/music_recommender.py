@@ -2,6 +2,9 @@ from typing import Dict, List, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from app.models.models import MusicProfile
+from .datamodels import RecommendedUser, SharedMusic, UserCompatibility
+
 class MusicRecommender:
     def __init__(self):
         self.vectorizer = TfidfVectorizer()
@@ -47,9 +50,9 @@ class MusicRecommender:
             
         return 0.0
 
-    def calculate_overall_similarity(self, profile1: Dict[str, Any], profile2: Dict[str, Any]) -> Dict[str, float]:
+    def calculate_overall_similarity(self, profile1: Dict[str, Any], profile2: Dict[str, Any]) -> UserCompatibility:
         """Calculate overall similarity between two user profiles with detailed breakdown"""
-        similarities = {}
+        similarities: Dict[str, float] = {}
         
         # Genre similarity using cosine similarity
         genres1 = profile1.get("genres", [])
@@ -113,25 +116,25 @@ class MusicRecommender:
             for key, weight in weights.items()
         )
 
-        return {
-            "overall_similarity": overall_similarity,
-            "component_similarities": similarities
-        }
+        return UserCompatibility(
+            overall_similarity=overall_similarity,
+            **similarities
+        )
 
     def get_user_recommendations(
-        self, target_profile: Dict[str, Any], other_profiles: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, target_profile: MusicProfile, other_profiles: List[MusicProfile], limit: int
+    ) -> List[RecommendedUser]:
         """Get recommended users sorted by similarity score"""
-        recommendations = []
+        recommendations: List[RecommendedUser] = []
         
         for profile in other_profiles:
-            similarity_result = self.calculate_overall_similarity(target_profile, profile)
+            similarity_result = self.calculate_overall_similarity(target_profile.to_dict(), profile.to_dict())
             recommendations.append({
-                "user_id": profile["id"],
-                "similarity_score": similarity_result["overall_similarity"],
-                "similarity_breakdown": similarity_result["component_similarities"]
+                user_id: profile.user_id,
+                similarity_score: similarity_result.overall_similarity,
+                compatibility: similarity_result,
             })
         
         # Sort by similarity score in descending order
-        recommendations.sort(key=lambda x: x["similarity_score"], reverse=True)
-        return recommendations
+        recommendations.sort(key=lambda x: x.get("similarity_score", 0.0), reverse=True)
+        return recommendations[:limit]
