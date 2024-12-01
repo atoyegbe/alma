@@ -40,11 +40,11 @@
 - [ ] GET /recommendations
 
 ### Connections Endpoints
-- [ ] GET /connections
-- [ ] POST /request/{target_user_id}
-- [ ] POST /accept/{connection_id}
-- [ ] POST /reject/{connection_id}
-- [ ] DELETE /{connection_id}
+- [x] GET /connections
+- [x] POST /request/{target_user_id}
+- [x] POST /accept/{connection_id}
+- [x] POST /reject/{connection_id}
+- [x] DELETE /{connection_id}
 
 ### Mood Rooms Endpoints
 - [ ] GET /
