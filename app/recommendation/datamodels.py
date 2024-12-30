@@ -16,13 +16,15 @@ class UserCompatibility(SQLModel):
     diversity_similarity: float
     obscurity_similarity: float
     decade_similarity: float
+    track_similarity: float
     listening_pattern_similarity: float
-    shared_music: SharedMusic
+    shared_music: Optional[SharedMusic] = None
 
 class RecommendedUser(SQLModel):
     user_id: str
-    username: str
-    display_name: Optional[str] = None
-    avatar_url: Optional[str] = None
     similarity_score: float
     compatibility: UserCompatibility
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    

@@ -5,12 +5,11 @@ from sqlmodel import Session, select
 
 from app.auth.auth import get_current_user
 from app.database.database import db_dependency
-from app.models.sqlmodels import MoodRoom, User, RoomParticipant
-from app.models.schema import MoodRoomResponse, MoodRoomCreate, UserResponse, TrackUpdate
+from app.models.models import MoodRoom, User
 
 router = APIRouter()
 
-@router.get("/", response_model=List[MoodRoomResponse])
+@router.get("/", response_model=List[MoodRoom])
 async def list_mood_rooms(
     db: db_dependency,
     current_user: User = Depends(get_current_user)
@@ -20,7 +19,7 @@ async def list_mood_rooms(
     rooms = db.exec(statement).all()
     return rooms
 
-@router.get("/{room_id}", response_model=MoodRoomResponse)
+@router.get("/{room_id}", response_model=MoodRoom)
 async def get_room_details(
     room_id: UUID,
     db: db_dependency,
@@ -69,7 +68,7 @@ async def leave_room(
     
     return {"message": "Successfully left the room"}
 
-@router.get("/{room_id}/users", response_model=List[UserResponse])
+@router.get("/{room_id}/users", response_model=List[User])
 async def get_room_users(
     room_id: UUID,
     db: db_dependency,
@@ -87,21 +86,21 @@ async def get_room_users(
     
     return []  # Return list of participants
 
-@router.post("/{room_id}/track")
-async def update_room_track(
-    room_id: UUID,
-    track_data: TrackUpdate,
-    db: db_dependency,
-    current_user: User = Depends(get_current_user)
-):
-    """Update the current track playing in the room"""
-    # Check if room exists and user is a participant
-    room_statement = select(MoodRoom).where(MoodRoom.id == room_id)
-    room = db.exec(room_statement).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Mood room not found")
+# @router.post("/{room_id}/track")
+# async def update_room_track(
+#     room_id: UUID,
+#     track_data: TrackUpdate,
+#     db: db_dependency,
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """Update the current track playing in the room"""
+#     # Check if room exists and user is a participant
+#     room_statement = select(MoodRoom).where(MoodRoom.id == room_id)
+#     room = db.exec(room_statement).first()
+#     if not room:
+#         raise HTTPException(status_code=404, detail="Mood room not found")
     
-    db.commit()
-    db.refresh(room)
+#     db.commit()
+#     db.refresh(room)
     
-    return {"message": "Track updated successfully"}
+#     return {"message": "Track updated successfully"}

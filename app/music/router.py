@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.sqlmodels import User, MusicProfile
+from app.models.models import User, MusicProfile
 from app.models.schema import (
     TopArtistsResponse, TopGenresResponse,
     MutualMusicInterests, MusicRecommendationsResponse

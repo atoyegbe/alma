@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.database.database import db_dependency
 from app.auth.auth import get_current_user
-from app.models.sqlmodels import User, MusicProfile
+from app.models.models import User, MusicProfile
 from app.models.schema import UserUpdate, SocialLinks
 from app.users import users
 

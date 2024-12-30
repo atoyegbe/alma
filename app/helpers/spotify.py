@@ -10,7 +10,7 @@ from app.users.users import get_user_by_token, update_user_profile, get_user
 from app.constant import API_BASE_URL
 from app.auth.auth import get_header
 
-from app.models.datamodels import MusicProfile
+from app.models.models import MusicProfile
 from app.music.profile_analyzer import MusicProfileAnalyzer
 from app.models.schema import Metrics
 
@@ -92,6 +92,24 @@ class SpotifyClient:
             response = await client.get(
                 f"{API_BASE_URL}me",
                 headers=self.headers
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def current_user_recently_played(self, limit: int = 50) -> Dict[str, Any]:
+        """Get the current user's recently played tracks
+        
+        Args:
+            limit: The maximum number of items to return (max: 50)
+            
+        Returns:
+            A dictionary containing the recently played tracks
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{API_BASE_URL}me/player/recently-played",
+                headers=self.headers,
+                params={"limit": min(limit, 50)}  # Ensure limit doesn't exceed Spotify's max
             )
             response.raise_for_status()
             return response.json()
