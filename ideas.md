@@ -1,5 +1,4 @@
-- compile all users saved into a playlist: use https://api.spotify.com/v1/tracks
-- mood room: only the user that created a room can change the song laying in a room, other users can request a song to be layed if accepted it get added to the queue, or the admin can accept only one other erson to be able to change the song playing
+- mood room: only the user that created a room can change the song laying in a room, other users can request a song to be layed if accepted it get added to the queue, or the admin can accept only one other erson to be able to change the song playing - use spotify jam feature(add other constrain needed on the client side.)
 
 # Musical Quest Master 🎮
 A gamification system that turns music discovery into an RPG-style adventure:
