@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.database.database import create_db_and_tables
+from app.database.database import create_db_and_tables, db_dependency
 
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
@@ -25,8 +25,10 @@ from app.realtime.router import router as websocket_router
 async def lifespan(app: FastAPI):
     create_db_and_tables()
     app.state.http_client = httpx.AsyncClient()
+    app.state.db = db_dependency
     yield
     await app.state.http_client.aclose()
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -44,7 +46,9 @@ app.add_middleware(
 
 
 app.include_router(auth_router, prefix='/auth', tags=['Auth'])
-app.include_router(recommendation_router, prefix='/recommendation', tags=['Recommendation'])
+app.include_router(
+    recommendation_router, prefix='/recommendations', tags=['Recommendation']
+)
 app.include_router(playlist_router, prefix='/playlists', tags=['Playlists'])
 app.include_router(user_router, prefix='/users', tags=['Users'])
 app.include_router(moodroom_router, prefix='/mood-rooms', tags=['Mood Rooms'])
