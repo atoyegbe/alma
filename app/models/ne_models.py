@@ -23,7 +23,7 @@ class User(SQLModel, table=True):
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_spotify_sync: Optional[datetime] = Field(default=None)
 
     # Relationships
@@ -32,8 +32,10 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"foreign_keys": "Connection.user_id"},
     )
-    mood_rooms: Optional[List["MoodRoom"]] = Relationship(back_populates="owner")
-    playlists: Optional[List["Playlist"]] = Relationship(back_populates="user")
+    mood_rooms: List["MoodRoom"] = Relationship(back_populates="owner")
+    playlists: List["Playlist"] = Relationship(back_populates="user")
+    quests: List["Quest"] = Relationship(back_populates="user")
+    achievements: List["Achievement"] = Relationship(back_populates="user")
 
 
 class MusicProfile(SQLModel, table=True):
@@ -73,6 +75,39 @@ class MusicProfile(SQLModel, table=True):
 
     # Relationships
     user: User = Relationship(back_populates="music_profile")
+
+
+class Quest(SQLModel, table=True):
+    __tablename__ = "quests"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    name: str
+    description: Optional[str] = Field(default=None)
+    type: str  # E.g., "Daily", "Weekly", "Challenge"
+    status: str  # E.g., "In Progress", "Completed"
+    progress: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+    rewards: Optional[Dict] = Field(default=None, sa_column=Column(JSON))
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    user: User = Relationship(back_populates="quests")
+
+
+class Achievement(SQLModel, table=True):
+    __tablename__ = "achievements"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    title: str
+    description: Optional[str] = Field(default=None)
+    badge_url: Optional[str] = Field(default=None)
+    awarded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    user: User = Relationship(back_populates="achievements")
 
 
 class Connection(SQLModel, table=True):

@@ -13,10 +13,7 @@ JWT_SHORT_EXP_DELTA_SECONDS = 144000
 # TODO: : ability to login with apple music.
 apple_kid = os.getenv('APPLE_KID', '')
 # Payload (you can customize this according to your requirements)
-header = {
-    "alg": "ES256",
-    "kid": apple_kid
-}
+header = {"alg": "ES256", "kid": apple_kid}
 
 # Payload including additional claims
 payload = {
@@ -25,7 +22,6 @@ payload = {
     "exp": int(time.time()) + 15777000,  # Expiration time 6 months from now
 }
 
+
 def generate_apple_jwt_token():
     jwt.encode(payload=payload, algorithm=JWT_ALGORITHM, headers=header)
-
-

@@ -14,6 +14,7 @@ import httpx
 
 router = APIRouter()
 
+
 @router.get("/callback")
 async def spotify_login(request: Request, db: db_dependency):
     code_param = request.query_params.get("code")

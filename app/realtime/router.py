@@ -11,16 +11,15 @@ from app.realtime.models import (
     UserLeftMessage,
     ChatMessage,
     TrackUpdateMessage,
-    WebSocketUser
+    WebSocketUser,
 )
 
 router = APIRouter()
 
+
 @router.websocket("/mood-rooms/{room_id}")
 async def mood_room_websocket(
-    websocket: WebSocket,
-    room_id: UUID,
-    token: Optional[str] = None
+    websocket: WebSocket, room_id: UUID, token: Optional[str] = None
 ):
     """WebSocket endpoint for real-time mood room updates"""
     if not token:
@@ -35,14 +34,14 @@ async def mood_room_websocket(
 
     try:
         await manager.connect_to_room(websocket, room_id)
-        
+
         # Create user info for messages
         user_info = WebSocketUser(
             id=str(current_user.id),
             name=current_user.display_name or current_user.username,
-            avatar_url=current_user.avatar_url
+            avatar_url=current_user.avatar_url,
         )
-        
+
         # Notify others that user joined
         join_message = UserJoinedMessage(user=user_info)
         await manager.broadcast_to_room(room_id, join_message)
@@ -52,22 +51,21 @@ async def mood_room_websocket(
                 # Receive and validate messages
                 data = await websocket.receive_json()
                 message_type = data.get("type")
-                
+
                 if message_type == "message":
                     # Handle chat message
                     chat_message = ChatMessage(
-                        user=user_info,
-                        content=data.get("content", "")
+                        user=user_info, content=data.get("content", "")
                     )
                     await manager.broadcast_to_room(room_id, chat_message)
-                
+
                 elif message_type == "track_update":
                     # Handle track update
                     track_message = TrackUpdateMessage(
                         user=user_info,
                         track_id=data.get("track_id", ""),
                         track_name=data.get("track_name", ""),
-                        artist_name=data.get("artist_name", "")
+                        artist_name=data.get("artist_name", ""),
                     )
                     await manager.broadcast_to_room(room_id, track_message)
 
@@ -76,15 +74,13 @@ async def mood_room_websocket(
             # Notify others that user left
             leave_message = UserLeftMessage(user=user_info)
             await manager.broadcast_to_room(room_id, leave_message)
-    
+
     except Exception as e:
         await websocket.close(code=4000, reason=str(e))
 
+
 @router.websocket("/notifications")
-async def notifications_websocket(
-    websocket: WebSocket,
-    token: Optional[str] = None
-):
+async def notifications_websocket(websocket: WebSocket, token: Optional[str] = None):
     """WebSocket endpoint for real-time user notifications"""
     if not token:
         await websocket.close(code=4001, reason="Authentication required")
@@ -104,6 +100,6 @@ async def notifications_websocket(
                 data = await websocket.receive_json()
         except WebSocketDisconnect:
             await manager.disconnect_from_notifications(current_user.id)
-    
+
     except Exception as e:
         await websocket.close(code=4000, reason=str(e))

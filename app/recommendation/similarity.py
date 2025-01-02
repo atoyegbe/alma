@@ -1,4 +1,3 @@
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -18,11 +17,11 @@ def get_users_similiraity(user1: User, user2: User) -> float:
     vectorizer = TfidfVectorizer()
 
     # Fit and transform user profiles
-    tfidf_matrix = vectorizer.fit_transform(user1_profile_strings + user2_profile_strings)
+    tfidf_matrix = vectorizer.fit_transform(
+        user1_profile_strings + user2_profile_strings
+    )
 
     # Calculate cosine similarity using sklearn.metrics.pairwise.cosine_similarity
     cosine_similarity_score = cosine_similarity(tfidf_matrix)[0][1]
 
     return cosine_similarity_score
-
-

@@ -14,7 +14,7 @@ from .connections import (
     create_connection,
     accept_connection,
     reject_connection,
-    delete_connection
+    delete_connection,
 )
 
 router = APIRouter()
@@ -29,6 +29,7 @@ async def list_user_connections(
     """Get all connections for the current user"""
     return get_user_connections(db, current_user.id)
 
+
 @router.post("/request/{target_user_id}")
 async def request_connection(
     target_user_id: UUID,
@@ -38,6 +39,7 @@ async def request_connection(
     """Create a connection request"""
     connection = create_connection(db, current_user.id, target_user_id)
     return {"message": "Connection request sent", "connection": connection}
+
 
 @router.post("/accept/{connection_id}")
 async def accept_connection_request(
@@ -49,6 +51,7 @@ async def accept_connection_request(
     connection = accept_connection(db, connection_id)
     return {"message": "Connection accepted", "connection": connection}
 
+
 @router.post("/reject/{connection_id}")
 async def reject_connection_request(
     connection_id: UUID,
@@ -58,6 +61,7 @@ async def reject_connection_request(
     """Reject a connection request"""
     connection = reject_connection(db, connection_id)
     return {"message": "Connection rejected", "connection": connection}
+
 
 @router.delete("/{connection_id}")
 async def remove_connection(

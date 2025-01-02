@@ -10,10 +10,11 @@ from app.realtime.models import (
     ChatMessage,
     TrackUpdateMessage,
     NotificationMessage,
-    WebSocketUser
+    WebSocketUser,
 )
 
 # TODO: consider using Redis for real-time updates
+
 
 class ConnectionManager:
     def __init__(self):
@@ -51,7 +52,7 @@ class ConnectionManager:
                     await websocket.send_json(message_dict)
                 except WebSocketDisconnect:
                     disconnected_ws.add(websocket)
-            
+
             # Clean up disconnected websockets
             for ws in disconnected_ws:
                 self.room_connections[room_id].remove(ws)
@@ -63,5 +64,6 @@ class ConnectionManager:
                 await self.notification_connections[user_id].send_json(message.dict())
             except WebSocketDisconnect:
                 await self.disconnect_from_notifications(user_id)
+
 
 manager = ConnectionManager()
