@@ -10,8 +10,9 @@ from app.connections.connections import (
     create_connection,
     accept_connection,
     reject_connection,
-    delete_connection
+    delete_connection,
 )
+
 
 @pytest.fixture
 def test_user():
@@ -19,8 +20,9 @@ def test_user():
         id=uuid4(),
         email="test@example.com",
         name="Test User",
-        spotify_id="test_spotify_id"
+        spotify_id="test_spotify_id",
     )
+
 
 @pytest.fixture
 def test_target_user():
@@ -28,8 +30,9 @@ def test_target_user():
         id=uuid4(),
         email="target@example.com",
         name="Target User",
-        spotify_id="target_spotify_id"
+        spotify_id="target_spotify_id",
     )
+
 
 @pytest.fixture
 def test_music_profile(test_user) -> MusicProfile:
@@ -46,8 +49,9 @@ def test_music_profile(test_user) -> MusicProfile:
         energy_score=0.8,
         danceability_score=0.7,
         diversity_score=0.6,
-        obscurity_score=0.5
+        obscurity_score=0.5,
     )
+
 
 @pytest.fixture
 def test_target_music_profile(test_target_user) -> MusicProfile:
@@ -63,8 +67,9 @@ def test_target_music_profile(test_target_user) -> MusicProfile:
         energy_score=0.7,
         danceability_score=0.6,
         diversity_score=0.5,
-        obscurity_score=0.4
+        obscurity_score=0.4,
     )
+
 
 @pytest.fixture
 def test_connection(test_user, test_target_user) -> Connection:
@@ -75,13 +80,11 @@ def test_connection(test_user, test_target_user) -> Connection:
         connected_user_id=test_target_user.id,
         status="pending",
         overall_compatibility=0.8,
-        compatibility_breakdown={
-            "genre_match": 0.8,
-            "artist_match": 0.7
-        },
+        compatibility_breakdown={"genre_match": 0.8, "artist_match": 0.7},
         shared_genres=["rock"],
-        shared_artists=["artist2"]
+        shared_artists=["artist2"],
     )
+
 
 class TestConnections:
     @pytest.fixture(autouse=True)
@@ -90,8 +93,10 @@ class TestConnections:
         db.add(test_user)
         db.add(test_target_user)
         db.commit()
-        
-    def test_get_user_connections(self, db: Session, test_user, test_target_user, test_connection):
+
+    def test_get_user_connections(
+        self, db: Session, test_user, test_target_user, test_connection
+    ):
         # Setup
         db.add(test_connection)
         db.commit()
@@ -104,8 +109,14 @@ class TestConnections:
         assert connections[0].user_id == test_user.id
         assert connections[0].connected_user_id == test_connection.connected_user_id
 
-    def test_create_connection(self, db: Session, test_user, test_target_user, 
-                             test_music_profile, test_target_music_profile):
+    def test_create_connection(
+        self,
+        db: Session,
+        test_user,
+        test_target_user,
+        test_music_profile,
+        test_target_music_profile,
+    ):
         db.add(test_music_profile)
         db.add(test_target_music_profile)
         db.commit()
@@ -119,8 +130,9 @@ class TestConnections:
         assert "afrobeats" in connection.shared_genres
         assert "wizkid" in connection.shared_artists
 
-    def test_create_duplicate_connection(self, db: Session, test_user, 
-                                       test_target_user, test_connection):
+    def test_create_duplicate_connection(
+        self, db: Session, test_user, test_target_user, test_connection
+    ):
         # Setup
         db.add(test_connection)
         db.commit()

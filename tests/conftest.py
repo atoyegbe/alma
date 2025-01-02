@@ -1,64 +1,31 @@
-from typing import Generator
-import os
+from typing import Generator, List
 import asyncio
-from datetime import datetime
 import uuid
-import sys
 
-
+import httpx
 import pytest
-from fastapi.testclient import TestClient
+
+from fastapi import FastAPI
+from fastapi.concurrency import asynccontextmanager
+from fastapi.routing import APIRoute
 from sqlmodel import Session, SQLModel, create_engine
 
-from app.database.database import get_db
-from app.main import app
+from app.models.models import MusicProfile, User
+from app.main import app as test_app
 
 # Use test database
 TEST_DATABASE_URL = "postgresql://postgres:test@localhost:5432/alma_test"
 
 # Create test engine
 engine_test = create_engine(
-    TEST_DATABASE_URL,
-    echo=True  # Set to False to reduce test output noise
+    TEST_DATABASE_URL, echo=True  # Set to False to reduce test output noise
 )
 
-@pytest.fixture(scope="session")
-def db_engine():
-    """Create test database engine"""
-    SQLModel.metadata.create_all(engine_test)
-    yield engine_test
-    SQLModel.metadata.drop_all(engine_test)
+def use_route_names_as_operation_ids(app: FastAPI) -> None:
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            route.operation_id = route.name
 
-@pytest.fixture(scope="function")
-def db(db_engine) -> Generator[Session, None, None]:
-    """Create a fresh database session for each test"""
-    connection = db_engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
-
-    yield session
-
-    session.close()
-    transaction.rollback()
-    connection.close()
-
-@pytest.fixture(scope="function")
-def client(db) -> Generator[TestClient, None, None]:
-    """Create a test client with database session override"""
-    def get_test_db():
-        yield db
-
-    app.dependency_overrides[get_db] = get_test_db
-    with TestClient(main_app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-
-@pytest.fixture(autouse=True)
-def setup_db(db: Session):
-    """Automatically set up and tear down database for each test"""
-    SQLModel.metadata.create_all(engine_test)
-    yield
-    db.rollback()
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -67,19 +34,127 @@ def event_loop():
     yield loop
     loop.close()
 
+
+@pytest.fixture(scope='session')
+def app():
+    use_route_names_as_operation_ids(test_app)
+    yield test_app
+
+
+@pytest.fixture(scope='session')
+async def app_state(app):
+    async with test_lifespan(app) as state:
+        yield state
+
+
+@pytest.fixture(scope="session")
+def db_engine():
+    """Create test database engine"""
+    SQLModel.metadata.create_all(engine_test)
+    yield engine_test
+    SQLModel.metadata.drop_all(engine_test)
+
+
 @pytest.fixture(scope="function")
-async def sample_user(db):
+def db_test(db_engine) -> Generator[Session, None, None]:
+    """Create a fresh database session for each test"""
+    connection = db_engine.connect()
+    # transaction = connection.begin()
+    session = Session(bind=connection)
+
+    yield session
+
+
+@asynccontextmanager
+async def test_lifespan(app: FastAPI):
+    app.state.http_client = httpx.AsyncClient()
+    app.state.db = db_test
+    yield
+    await app.state.http_client.aclose()
+
+
+@pytest.fixture
+async def sample_user(db_test):
     """Create a sample user for testing."""
     from app.models.models import User
+
     user = User(
-        id=str(uuid.uuid4()),
-        username="test_user",
-        email="test@example.com",
-        hashed_password="hashed_password",
-        is_active=True,
-        created_at=datetime.utcnow()
+        display_name='test_user',
+        email='test@example.com',
+        spotify_token='spotify_token'
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    db_test.add(user)
+    db_test.commit()
+    db_test.refresh(user)
     return user
+
+
+@pytest.fixture
+async def client(app, sample_user: User):
+    token = sample_user.spotify_token
+    headers = {'Content-Type': 'application/json', 'Auth-Token': f'Bearer {token}'}
+
+    async with httpx.AsyncClient(
+        app=app, base_url='http://127.0.0.1:8000', headers=headers
+    ) as client:
+        print('Test Client is ready')
+        yield client
+
+
+@pytest.fixture
+def test_user_profile(sample_user: User, db_test: Session):
+    music_profile = MusicProfile(
+        id=uuid.uuid4(),
+        user_id=sample_user.id,
+        genres=["pop", "rock", "indie"],
+        top_artists=["artist1", "artist2", "artist3"],
+        top_tracks=["track1", "track2", "track3"],
+        energy_score=0.8,
+        danceability_score=0.7,
+        diversity_score=0.6,
+        obscurity_score=0.5,
+    )
+    db_test.add(music_profile)
+    db_test.commit()
+    db_test.refresh(music_profile)
+    return music_profile
+
+
+@pytest.fixture
+def other_users(db_test: Session):
+    users = [
+        User(
+            id=uuid.uuid4(),
+            email=f"other{i}@example.com",
+            spotify_id=f"other_spotify_{i}",
+            display_name=f"Other User {i}",
+        )
+        for i in range(3)
+    ]
+    db_test.add_all(users)
+    db_test.commit()
+    db_test.refresh(users)
+    return users
+
+
+@pytest.fixture
+def other_profiles(other_users: List[User], db_test: Session):
+    other_profiles = [
+        MusicProfile(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            genres=["rock", "indie", "electronic"],
+            top_artists=["artist2", "artist4", "artist5"],  # artist2 shared
+            top_tracks=["track2", "track4", "track5"],  # track2 shared
+            energy_score=0.75,
+            danceability_score=0.65,
+            diversity_score=0.55,
+            obscurity_score=0.45,
+        )
+        for user in other_users
+    ]
+    db_test.add_all(other_profiles)
+    db_test.commit()
+    db_test.refresh(other_profiles)
+    return other_profiles
+
