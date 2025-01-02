@@ -1,8 +1,7 @@
 import pytest
 from uuid import UUID, uuid4
 from fastapi import HTTPException
-from sqlmodel import Session, select
-import json
+from sqlmodel import Session
 
 from app.models.models import User, Connection, MusicProfile
 from app.connections.connections import (

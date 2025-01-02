@@ -22,13 +22,10 @@ async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
         raise HTTPException(status_code=401, detail="No token in auth header")
 
     db = db_dependency
-    try:
-        user = get_user_by_token(db, auth_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid authentication token")
-        return user
-    finally:
-        db.close()
+    user = get_user_by_token(db, auth_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+    return user
 
 
 def get_header(token: str):
