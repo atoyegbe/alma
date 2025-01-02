@@ -25,8 +25,8 @@ $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)
 
 # Run tests
-test: install
-	$(VENV)/bin/$(PYTHON) -m pytest $(TEST_DIR)
+test:
+	pytest $(TEST_DIR)
 
 # Run linter (flake8)
 lint:
