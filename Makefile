@@ -3,7 +3,7 @@
 # Variables
 PYTHON := python3
 PIP := pip
-VENV := alma
+VENV := ./venv
 SRC_DIR := app
 TEST_DIR := tests
 REQ_FILE := requirements.txt
