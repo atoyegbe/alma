@@ -4,11 +4,12 @@ from typing import AsyncIterator, TypedDict
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth.auth import AuthService
 from app.users.users import UserService
-from app.database.database import create_db_and_tables, db_dependency
+from app.database.database import create_db_and_tables, engine
 
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
@@ -27,11 +28,13 @@ class State(TypedDict):
 async def lifespan(app: FastAPI) -> AsyncIterator[State]:
     create_db_and_tables()
     app.state.http_client = httpx.AsyncClient()
-    app.state.user_service = UserService(db_dependency)
-    app.state.auth_service = AuthService(db_dependency)
-    yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
-    await app.state.http_client.aclose()
+    # Create a database session and pass it to services
+    with Session(engine) as session:
+        app.state.user_service = UserService(session)
+        app.state.auth_service = AuthService(session)
+        yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
 
+    await app.state.http_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
 

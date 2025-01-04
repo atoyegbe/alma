@@ -1,5 +1,5 @@
 import asyncio
-from typing import Annotated, Generator, TypedDict
+from typing import Annotated, TypedDict
 import uuid
 
 import httpx
@@ -67,7 +67,7 @@ async def clean_db(db_test):
 
 
 @pytest.fixture(scope="function")
-def db_test() -> Generator[Session, None, None]:
+def db_test():
     """Create a fresh database session for each test"""
     with Session(engine_test) as session:
         yield session
@@ -83,11 +83,15 @@ class State(TypedDict):
 
 @asynccontextmanager
 async def test_lifespan(app: FastAPI):
-    app.state.http_client = httpx.AsyncClient()
-    app.state.user_service = UserService(db_dependency)
-    app.state.auth_service = AuthService(db_dependency)
-    yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
-    await app.state.http_client.aclose()
+    with Session(engine_test) as session:
+        # Pass the session directly to the services
+        app.state.user_service = UserService(session)
+        app.state.auth_service = AuthService(session)
+        app.state.http_client = httpx.AsyncClient()
+
+        yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
+
+        await app.state.http_client.aclose()
 
 
 @pytest.fixture(scope='session')

@@ -1,5 +1,3 @@
-from typing import Annotated, Generator
-from fastapi import Depends
 from sqlmodel import Session, SQLModel, create_engine
 
 DATABASE_URL = "postgresql://postgres:test@localhost:5432/alma"
@@ -14,6 +12,3 @@ def create_db_and_tables():
 def get_db():
     with Session(engine) as session:
         yield session
-
-
-db_dependency = Annotated[Session, Depends(get_db)]
