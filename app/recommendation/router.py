@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List, Optional
 from uuid import UUID
-from sqlmodel import or_, select
+from sqlmodel import Session, or_, select
 
-from app.database.database import db_dependency
+from app.database.database import get_db
 from app.helpers.router.utils import get_authenticated_user
 from app.models.models import User, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
@@ -86,7 +86,7 @@ async def get_recommended_users(
 @router.get("/compatibility/{user_id}", response_model=UserCompatibility)
 async def get_user_compatibility(
     user_id: UUID,
-    db: db_dependency,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Get detailed compatibility analysis with another user"""

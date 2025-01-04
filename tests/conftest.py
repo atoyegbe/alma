@@ -72,10 +72,6 @@ def db_test():
     with Session(engine_test) as session:
         yield session
 
-
-db_dependency = Annotated[Session, Depends(db_test)]
-
-
 class State(TypedDict):
     user_service: UserService
     auth_service: AuthService
@@ -115,7 +111,9 @@ async def sample_user(user_service: UserService):
         'spotify_token': 'spotify_token',
         'spotify_id': 'test_spotify_id',
     }
-    user_service.create_user(user_data)
+    new_user = user_service.create_user(user_data)
+
+    return new_user
 
 
 @pytest.fixture
@@ -128,25 +126,6 @@ async def client(app, sample_user: User):
     ) as client:
         print('Test Client is ready')
         yield client
-
-
-@pytest.fixture
-def test_user_profile(sample_user: User, user_service: UserService):
-    music_profile = MusicProfile(
-        id=uuid.uuid4(),
-        user_id=sample_user.id,
-        genres=["pop", "rock", "indie"],
-        top_artists=["artist1", "artist2", "artist3"],
-        top_tracks=["track1", "track2", "track3"],
-        energy_score=0.8,
-        danceability_score=0.7,
-        diversity_score=0.6,
-        obscurity_score=0.5,
-    )
-    db_test.add(music_profile)
-    db_test.commit()
-    db_test.refresh(music_profile)
-    return music_profile
 
 
 # @pytest.fixture

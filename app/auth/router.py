@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlmodel import Session
 
-from app.database.database import db_dependency
-from app.helpers.router.utils import get_authenticated_user
-from app.models.models import User
-from app.auth import auth
+from app.database.database import get_db
 from app.constant import TOKEN_URL, CLIENT_REDIRECT_URL
 from datetime import datetime
 import base64
@@ -15,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/callback")
-async def spotify_login(request: Request, db: db_dependency):
+async def spotify_login(request: Request, db: Session = Depends(get_db)):
     code_param = request.query_params.get("code")
     try:
         data = {

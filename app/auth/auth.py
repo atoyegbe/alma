@@ -20,6 +20,7 @@ class AuthService():
         if not auth_token:
             raise HTTPException(status_code=401, detail="No auth header")
 
+        auth_token = str(auth_token)
         if not auth_token.startswith("Bearer"):
             raise HTTPException(status_code=401, detail="'Bearer' prefix missing")
 

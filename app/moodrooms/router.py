@@ -2,11 +2,11 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from app.helpers.router.utils import get_authenticated_user
 
-from app.database.database import db_dependency
+from app.database.database import get_db
 from app.models.models import MoodRoom, User
 
 router = APIRouter()
@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[MoodRoom])
 async def list_mood_rooms(
-    db: db_dependency,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """List all available mood rooms"""
@@ -25,7 +25,7 @@ async def list_mood_rooms(
 
 @router.get("/{room_id}", response_model=MoodRoom)
 async def get_room_details(
-    room_id: UUID, db: db_dependency,
+    room_id: UUID, db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Get details of a specific mood room"""
@@ -38,7 +38,7 @@ async def get_room_details(
 
 @router.post("/join/{room_id}")
 async def join_room(
-    room_id: UUID, db: db_dependency,
+    room_id: UUID, db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Join a mood room"""
@@ -57,7 +57,7 @@ async def join_room(
 
 @router.post("/leave/{room_id}")
 async def leave_room(
-    room_id: UUID, db: db_dependency,
+    room_id: UUID, db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Leave a mood room"""
@@ -74,7 +74,7 @@ async def leave_room(
 
 @router.get("/{room_id}/users", response_model=List[User])
 async def get_room_users(
-    room_id: UUID, db: db_dependency,
+    room_id: UUID, db: Session = Depends(get_db),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Get all users in a mood room"""
@@ -94,7 +94,7 @@ async def get_room_users(
 # async def update_room_track(
 #     room_id: UUID,
 #     track_data: TrackUpdate,
-#     db: db_dependency,
+#     db: Session = Depends(get_db),
 #     current_user: User = Depends(get_authenticated_user)
 # ):
 #     """Update the current track playing in the room"""

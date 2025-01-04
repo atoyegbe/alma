@@ -4,7 +4,6 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.recommendation.datamodels import SharedMusic, UserCompatibility
-from app.database.database import db_dependency
 from app.models.models import User, MusicProfile
 from app.models.schema import SocialLinks
 from app.recommendation.music_recommender import MusicRecommender
