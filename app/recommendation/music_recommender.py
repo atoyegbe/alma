@@ -137,11 +137,11 @@ class MusicRecommender:
                 target_profile.to_dict(), profile.to_dict()
             )
             recommendations.append(
-                {
-                    user_id: profile.user_id,
-                    similarity_score: similarity_result.overall_similarity,
-                    compatibility: similarity_result,
-                }
+                RecommendedUser(
+                    user_id=profile.user_id,
+                    similarity_score=similarity_result.overall_similarity,
+                    compatibility=similarity_result,
+                )
             )
 
         # Sort by similarity score in descending order

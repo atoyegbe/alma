@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List, Optional
 from uuid import UUID
-from sqlmodel import Session, select
+from sqlmodel import or_, select
 
 from app.database.database import db_dependency
-from app.auth.auth import get_current_user
+from app.helpers.router.utils import get_authenticated_user
 from app.models.models import User, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
 from app.recommendation.datamodels import (
@@ -19,15 +19,15 @@ recommender = MusicRecommender()
 
 @router.get("/users", response_model=List[RecommendedUser])
 async def get_recommended_users(
-    db: db_dependency,
+    request: Request,
     limit: int = 10,
     min_score: float = 0.0,
     genres: Optional[List[str]] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_authenticated_user),
 ):
     """Get recommended users based on music taste"""
     # Get current user's music profile
-    current_profile = db.get(MusicProfile, current_user.id)
+    current_profile = request.app.get(MusicProfile, current_user.id)
     if not current_profile:
         raise HTTPException(status_code=404, detail="Music profile not found")
 
@@ -43,7 +43,7 @@ async def get_recommended_users(
             else (1 == 1)
         ),
     )
-    results = db.exec(statement).all()
+    results = request.state.db.exec(statement).all()
 
     if not results:
         return []
@@ -85,7 +85,9 @@ async def get_recommended_users(
 
 @router.get("/compatibility/{user_id}", response_model=UserCompatibility)
 async def get_user_compatibility(
-    user_id: UUID, db: db_dependency, current_user: User = Depends(get_current_user)
+    user_id: UUID,
+    db: db_dependency,
+    current_user: User = Depends(get_authenticated_user)
 ):
     """Get detailed compatibility analysis with another user"""
     # Get target user's profile
