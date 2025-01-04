@@ -1,10 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from uuid import UUID
-from typing import Optional
-from sqlmodel import Session
 
-from app.auth.auth import get_current_user, get_user_by_token
-from app.database.database import get_db as get_session
+from app.models.models import User
+from app.users.users import UserService
+from app.helpers.router.utils import get_authenticated_user, get_user_service
 from app.realtime.handlers import manager
 from app.realtime.models import (
     UserJoinedMessage,
@@ -19,15 +18,13 @@ router = APIRouter()
 
 @router.websocket("/mood-rooms/{room_id}")
 async def mood_room_websocket(
-    websocket: WebSocket, room_id: UUID, token: Optional[str] = None
+    websocket: WebSocket,
+    room_id: UUID,
+    current_user: User = Depends(get_authenticated_user),
+    user_service: UserService = Depends(get_user_service),
 ):
     """WebSocket endpoint for real-time mood room updates"""
-    if not token:
-        await websocket.close(code=4001, reason="Authentication required")
-        return
-
-    db = next(get_session())
-    current_user = await get_user_by_token(db, token)
+    current_user: User = await user_service.get_user(current_user.id)
     if not current_user:
         await websocket.close(code=4001, reason="Invalid authentication token")
         return
@@ -38,8 +35,8 @@ async def mood_room_websocket(
         # Create user info for messages
         user_info = WebSocketUser(
             id=str(current_user.id),
-            name=current_user.display_name or current_user.username,
-            avatar_url=current_user.avatar_url,
+            name=current_user.display_name,
+            avatar_url=current_user.spotify_image_url,
         )
 
         # Notify others that user joined
@@ -80,14 +77,13 @@ async def mood_room_websocket(
 
 
 @router.websocket("/notifications")
-async def notifications_websocket(websocket: WebSocket, token: Optional[str] = None):
+async def notifications_websocket(
+    websocket: WebSocket,
+    current_user: User = Depends(get_authenticated_user),
+    user_service: UserService = Depends(get_user_service),
+):
     """WebSocket endpoint for real-time user notifications"""
-    if not token:
-        await websocket.close(code=4001, reason="Authentication required")
-        return
-
-    db = next(get_session())
-    current_user = await get_user_by_token(db, token)
+    current_user: User = await user_service.get_user(current_user.id)
     if not current_user:
         await websocket.close(code=4001, reason="Invalid authentication token")
         return
@@ -97,7 +93,7 @@ async def notifications_websocket(websocket: WebSocket, token: Optional[str] = N
         try:
             while True:
                 # Keep connection alive and handle incoming acknowledgments
-                data = await websocket.receive_json()
+                await websocket.receive_json()
         except WebSocketDisconnect:
             await manager.disconnect_from_notifications(current_user.id)
 
