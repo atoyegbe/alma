@@ -10,7 +10,7 @@ class AuthService():
     def __init__(self, db: Session):
         self.db = db
 
-    async def get_current_user(
+    def get_current_user(
             self,
             auth_token: Optional[str] = Header(None)
             ) -> User:
