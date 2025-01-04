@@ -1,16 +1,13 @@
-import base64
-import os
-import urllib
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Annotated, Any, Dict, List, Optional
+from typing import AsyncIterator, TypedDict
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.auth.auth import AuthService
+from app.users.users import UserService
 from app.database.database import create_db_and_tables, db_dependency
 
 from app.recommendation.router import router as recommendation_router
@@ -21,12 +18,18 @@ from app.moodrooms.router import router as moodroom_router
 from app.realtime.router import router as websocket_router
 
 
+class State(TypedDict):
+    user_service: UserService
+    auth_service: AuthService
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[State]:
     create_db_and_tables()
     app.state.http_client = httpx.AsyncClient()
-    app.state.db = db_dependency
-    yield
+    app.state.user_service = UserService(db_dependency)
+    app.state.auth_service = AuthService(db_dependency)
+    yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
     await app.state.http_client.aclose()
 
 
