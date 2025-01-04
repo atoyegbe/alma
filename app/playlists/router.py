@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
 from typing import List
-from datetime import datetime
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from app.auth.auth import get_current_user
+from app.helpers.router.utils import get_authenticated_user
 from app.database.database import db_dependency
 from app.models.models import User, Playlist
 from app.models.schema import PlaylistCreate, PlaylistUpdate, PlaylistResponse
 from app.helpers.spotify import get_spotify_client
-
 from app.playlists.playlists import (
     get_user_playlists,
     update_user_playlist,
@@ -22,7 +20,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[PlaylistResponse])
 async def list_playlists(
-    db: db_dependency, current_user: User = Depends(get_current_user)
+    db: db_dependency, current_user: User = Depends(get_authenticated_user)
 ):
     """Get current user's playlists"""
     return await get_user_playlists(db, current_user.id)
@@ -30,7 +28,7 @@ async def list_playlists(
 
 @router.get("/mutual/{user_id}", response_model=List[PlaylistResponse])
 async def get_mutual_playlists(
-    user_id: UUID, db: db_dependency, current_user: User = Depends(get_current_user)
+    user_id: UUID, db: db_dependency, current_user: User = Depends(get_authenticated_user)
 ):
     """Get mutual playlists between current user and specified user"""
     if current_user.id == user_id:
@@ -44,7 +42,7 @@ async def get_mutual_playlists(
 async def create_playlist(
     playlist_data: PlaylistCreate,
     db: db_dependency,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_authenticated_user),
 ):
     """Create a new playlist"""
     return await create_user_playlist(current_user.id, playlist_data, db)
@@ -55,7 +53,7 @@ async def update_playlist(
     playlist_id: UUID,
     playlist_update: PlaylistUpdate,
     db: db_dependency,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_authenticated_user),
 ):
     """Update an existing playlist"""
     # Verify playlist exists and belongs to user
@@ -74,7 +72,9 @@ async def update_playlist(
 
 @router.delete("/{playlist_id}")
 async def delete_playlist(
-    playlist_id: UUID, db: db_dependency, current_user: User = Depends(get_current_user)
+    playlist_id: UUID,
+    db: db_dependency,
+    current_user: User = Depends(get_authenticated_user)
 ):
     """Delete a playlist"""
     # Verify playlist exists and belongs to user
@@ -103,7 +103,7 @@ async def delete_playlist(
 # async def get_playlist_tracks(
 #     playlist_id: UUID,
 #     db: db_dependency,
-#     current_user: User = Depends(get_current_user)
+#     current_user: User = Depends(get_authenticated_user)
 # ):
 #     """Get tracks in a playlist"""
 #     # Verify playlist exists
