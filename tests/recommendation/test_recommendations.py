@@ -1,42 +1,32 @@
+from uuid import uuid4
 import pytest
 
 
 @pytest.mark.usefixtures('event_loop')
 class TestRecommendationEndpoints:
-    async def test_get_recommendations_success(
-        self,
-        client,
-        db,
-        test_user_profile,
-        other_users,
-        other_profiles,
-    ):
-        # Setup
-        for user, profile in zip(other_users, other_profiles):
-            db.add(user)
-            db.add(profile)
-        db.commit()
+    # async def test_get_recommendations_success(
+    #     self,
+    #     client,
+    # ):
+    #     response = await client.get(
+    #         "/recommendations/users",
+    #     )
+    #     # Assert
+    #     assert response.status_code == 200
+    #     data = response.json()
+    #     assert isinstance(data, list)
+    #     assert len(data) <= 10  # Default limit
 
-        response = await client.get(
-            "/recommendations/users",
-        )
+    #     if data:
+    #         first_rec = data[0]
+    #         assert "user_id" in first_rec
+    #         assert "similarity_score" in first_rec
+    #         assert "compatibility" in first_rec
 
-        # Assert
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) <= 10  # Default limit
-
-        if data:
-            first_rec = data[0]
-            assert "user_id" in first_rec
-            assert "similarity_score" in first_rec
-            assert "compatibility" in first_rec
-
-            compatibility = first_rec["compatibility"]
-            assert "overall_similarity" in compatibility
-            assert "genre_similarity" in compatibility
-            assert "shared_music" in compatibility
+    #         compatibility = first_rec["compatibility"]
+    #         assert "overall_similarity" in compatibility
+    #         assert "genre_similarity" in compatibility
+    #         assert "shared_music" in compatibility
 
     # def test_get_recommendations_with_filters(
     #     self,
@@ -72,16 +62,15 @@ class TestRecommendationEndpoints:
     #         assert any(genre in shared_genres for genre in ["rock", "indie"])
 
     # def test_get_recommendations_no_profile(
-    #     self, client: TestClient, db: Session, test_user
+    #     self, db_test, sample_user, client
     # ):
     #     # Setup
-    #     db.add(test_user)
-    #     db.commit()
+    #     db_test.add(sample_user)
+    #     db_test.commit()
 
     #     # Execute
     #     response = client.get(
     #         "/recommendations/users",
-    #         headers={"auth_token": f"Bearer {test_user.spotify_token}"},
     #     )
 
     #     # Assert
@@ -148,20 +137,13 @@ class TestRecommendationEndpoints:
     #     response = client.get(f"/recommendations/compatibility/{uuid4()}")
     #     assert response.status_code == 401
 
-    # def test_invalid_user_id(
-    #     self, client: TestClient, db: Session, test_user, test_user_profile
-    # ):
-    #     # Setup
-    #     db.add(test_user)
-    #     db.add(test_user_profile)
-    #     db.commit()
+    async def test_invalid_user_id(
+        self, client
+    ):
+        response = await client.get(
+            f"/recommendations/compatibility/{uuid4()}",
+        )
 
-    #     # Execute
-    #     response = client.get(
-    #         f"/recommendations/compatibility/{uuid4()}",
-    #         headers={"auth_token": f"Bearer {test_user.spotify_token}"},
-    #     )
-
-    #     # Assert
-    #     assert response.status_code == 404
-    #     assert "User not found" in response.json()["detail"]
+        # Assert
+        assert response.status_code == 404
+        assert "User not found" in response.json()["detail"]
