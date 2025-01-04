@@ -5,12 +5,11 @@ from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from app.database.database import get_db
-from app.users.users import get_user_by_token, update_user_profile, get_user
 from app.constant import API_BASE_URL
-from app.auth.auth import get_header
-
-from app.models.models import MusicProfile
+from app.database.database import get_db
+from app.helpers.router.utils import get_user_service
+from app.users.users import UserService
+from app.models.models import MusicProfile, User
 from app.music.profile_analyzer import MusicProfileAnalyzer
 from app.models.schema import Metrics
 
@@ -18,9 +17,10 @@ from app.models.schema import Metrics
 class SpotifyClient:
     """Spotify API client for making authenticated requests"""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, user_service: UserService = None):
         self.token = token
         self.headers = {"Authorization": f"Bearer {token}"}
+        self.user_service = user_service
 
     async def current_user_top_artists(
         self, limit: int = 20, time_range: str = "medium_term"
@@ -212,27 +212,32 @@ class SpotifyClient:
 
 
 async def get_spotify_client(
-    user_id: str, db: Session = Depends(get_db)
+    user_id: str,
+    user_service: UserService = Depends(get_user_service),
 ) -> SpotifyClient:
     """Get a configured Spotify client for a user"""
     # Get the user's access token from the database
-    user = await get_user(db, user_id)
+    user: User = await user_service.get_user(user_id)
     if not user or not user.spotify_token:
         raise HTTPException(
             status_code=401, detail="User not found or Spotify token not available"
         )
 
-    return SpotifyClient(user.spotify_token)
+    return SpotifyClient(user.spotify_token, user_service)
 
 
-async def sync_user_spotify_data(user_id: str, db: Session) -> None:
+async def sync_user_spotify_data(
+        user_id: str,
+        user_service: UserService = Depends(get_user_service),
+        db: Session = Depends(get_db)
+    ) -> None:
     """
     Sync user's Spotify data with our database.
     This includes:
     - User profile (spotify_id, display_name, etc.)
     - Music profile (top artists, tracks, genres, etc.)
     """
-    spotify = await get_spotify_client(user_id, db)
+    spotify = await get_spotify_client(user_id, user_service)
     analyzer = MusicProfileAnalyzer(spotify)
 
     try:
@@ -290,7 +295,7 @@ async def sync_user_spotify_data(user_id: str, db: Session) -> None:
             "country": user_data.get("country"),
             "last_spotify_sync": datetime.utcnow(),
         }
-        await update_user(db, user_id, **user_update)
+        await user_service.update_user_profile(user_id, **user_update)
 
         # Calculate all profile metrics
         profile_metrics: Metrics = await analyzer.get_complete_profile_metrics()

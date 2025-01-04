@@ -3,9 +3,9 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlmodel import Session
 
-from alma.app.auth.auth import AuthService
-from alma.app.database.database import get_db
-from alma.app.users.users import UserService
+from app.auth.auth import AuthService
+from app.database.database import get_db
+from app.users.users import UserService
 
 
 def get_user_service(
@@ -19,3 +19,9 @@ def get_auth_service(request: Request) -> AuthService:
         return request.app.state.auth_service
     else:
         raise ValueError('Invalid auth client')
+
+
+def get_authenticated_user(
+    auth_service: AuthService = Depends(get_auth_service),
+) -> UserService:
+    return auth_service.get_current_user()
