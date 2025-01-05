@@ -19,9 +19,3 @@ def get_auth_service(request: Request) -> AuthService:
         return request.app.state.auth_service
     else:
         raise ValueError('Invalid auth client')
-
-
-def get_authenticated_user(
-    auth_service: AuthService = Depends(get_auth_service),
-) -> UserService:
-    return auth_service.get_current_user()

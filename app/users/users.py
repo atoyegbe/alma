@@ -67,7 +67,7 @@ class UserService:
             spotify_url=user_data.get("spotify_url"),
             spotify_image_url=user_data.get("images", [{}])[0].get("url"),
             country=user_data.get("country"),
-            spotify_token=user_data.get("access_token"),
+            spotify_token=user_data.get("spotify_token"),
             spotify_refresh_token=user_data.get("refresh_token"),
         )
 

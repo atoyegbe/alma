@@ -1,4 +1,5 @@
 from uuid import uuid4
+import uuid
 import pytest
 
 
@@ -140,10 +141,11 @@ class TestRecommendationEndpoints:
     async def test_invalid_user_id(
         self, client
     ):
+        invalid_user_id = uuid.uuid4()
         response = await client.get(
-            f"/recommendations/compatibility/{uuid4()}",
+            f"/recommendations/compatibility/{invalid_user_id}",
         )
 
         # Assert
         assert response.status_code == 404
-        assert "User not found" in response.json()["detail"]
+        assert "Target user's music profile not found" in response.json()["detail"]

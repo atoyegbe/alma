@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
 from sqlmodel import Session, select
 
-from app.helpers.router.utils import get_authenticated_user
+from app.auth.auth import get_authenticated_user
 
 from app.database.database import get_db
 from app.models.models import MoodRoom, User

@@ -1,9 +1,10 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from uuid import UUID
 
+from app.auth.auth import get_authenticated_user
 from app.models.models import User
 from app.users.users import UserService
-from app.helpers.router.utils import get_authenticated_user, get_user_service
+from app.helpers.router.utils import get_user_service
 from app.realtime.handlers import manager
 from app.realtime.models import (
     UserJoinedMessage,

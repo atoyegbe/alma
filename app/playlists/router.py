@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import List
 from sqlmodel import select, Session
 
-from app.helpers.router.utils import get_authenticated_user
+from app.auth.auth import get_authenticated_user
 from app.database.database import get_db
 from app.models.models import User, Playlist
 from app.models.schema import PlaylistCreate, PlaylistUpdate, PlaylistResponse

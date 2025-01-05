@@ -3,8 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 from sqlmodel import Session, or_, select
 
+from app.auth.auth import get_authenticated_user
 from app.database.database import get_db
-from app.helpers.router.utils import get_authenticated_user
 from app.models.models import User, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
 from app.recommendation.datamodels import (

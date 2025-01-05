@@ -66,7 +66,7 @@ async def clean_db(db_test):
     db_test.commit()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def db_test():
     """Create a fresh database session for each test"""
     with Session(engine_test) as session:
@@ -112,6 +112,7 @@ async def sample_user(user_service: UserService):
         'spotify_id': 'test_spotify_id',
     }
     new_user = user_service.create_user(user_data)
+    print(f"Created sample user: {new_user}")
 
     return new_user
 
@@ -119,7 +120,7 @@ async def sample_user(user_service: UserService):
 @pytest.fixture
 async def client(app, sample_user: User):
     token = sample_user.spotify_token
-    headers = {'Content-Type': 'application/json', 'Auth-Token': f'Bearer {token}'}
+    headers = {'Content-Type': 'application/json', 'auth-token': f'Bearer {token}'}
 
     async with httpx.AsyncClient(
         app=app, base_url='http://127.0.0.1:8000', headers=headers

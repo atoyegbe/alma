@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends
 from typing import List
 from uuid import UUID
 
+from app.auth.auth import get_authenticated_user
 from app.users.users import UserService
-from app.helpers.router.utils import get_authenticated_user, get_user_service
+from app.helpers.router.utils import get_user_service
 from app.models.models import User, MusicProfile
 from app.models.schema import UserUpdate, SocialLinks
 
