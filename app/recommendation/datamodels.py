@@ -1,28 +1,33 @@
-from typing import Dict, Any, Optional, List
+from typing import List, Optional
 from sqlmodel import SQLModel
 
+
 class SimilarityPercentage(SQLModel):
-    similarity_score: int
+    similarity_score: Optional[int] = None
+
 
 class SharedMusic(SQLModel):
-    artists: List[Dict[str, Any]]
-    tracks: List[Dict[str, Any]]
-    genres: List[str]
+    artists: Optional[List[str]] = None
+    tracks: Optional[List[str]] = None
+    genres: Optional[List[str]] = None
+
 
 class UserCompatibility(SQLModel):
-    overall_similarity: float
-    genre_similarity: float
-    artist_similarity: float
-    diversity_similarity: float
-    obscurity_similarity: float
-    decade_similarity: float
-    listening_pattern_similarity: float
-    shared_music: SharedMusic
+    overall_similarity: Optional[float] = None
+    genre_similarity: Optional[float] = None
+    artist_similarity: Optional[float] = None
+    diversity_similarity: Optional[float] = None
+    obscurity_similarity: Optional[float] = None
+    decade_similarity: Optional[float] = None
+    track_similarity: Optional[float] = None
+    listening_pattern_similarity: Optional[float] = None
+    shared_music: Optional[SharedMusic] = None
+
 
 class RecommendedUser(SQLModel):
-    user_id: str
-    username: str
+    user_id: Optional[str] = None
+    similarity_score: Optional[float] = None
+    compatibility: Optional[UserCompatibility] = None
+    username: Optional[str] = None
     display_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    similarity_score: float
-    compatibility: UserCompatibility

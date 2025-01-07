@@ -1,13 +1,25 @@
 from typing import Optional
 
-from fastapi import HTTPException, Header
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, Header, Request
+from sqlmodel import Session, select
 
-from app.database.database import SessionLocal
-from app.users.users import get_user_by_token
-from app.models.datamodels import User
+from app.models.models import User
 
-async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
+
+class AuthService():
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_curent_user_by_token(self, auth_token: str) -> Optional[User]:
+        """Get user by authentication token"""
+        statement = select(User).where(User.spotify_token == auth_token)
+        return self.db.exec(statement).first()
+
+
+def get_authenticated_user(
+        request: Request,
+        auth_token: Optional[str] = Header(None)
+        ) -> User:
     """
     Validate user authentication token and return current user
     """
@@ -20,15 +32,9 @@ async def get_current_user(auth_token: Optional[str] = Header(None)) -> User:
     token = auth_token[7:]
     if not token:
         raise HTTPException(status_code=401, detail="No token in auth header")
-    
-    db = SessionLocal()
-    try:
-        user = get_user_by_token(db, auth_token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid authentication token")
-        return user
-    finally:
-        db.close()
 
-def get_header(token: str):
-    return {"Authorization": f"Bearer {token}"}
+    user_service = request.app.state.user_service
+    user = user_service.get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+    return user

@@ -1,13 +1,9 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
-from app.database.database import db_dependency
-from app.auth.auth import get_current_user
-from app.models.datamodels import User
-from app.auth import auth
+from app.database.database import get_db
 from app.constant import TOKEN_URL, CLIENT_REDIRECT_URL
-from app.users.users import create_user, get_user, update_user_profile
 from datetime import datetime
 import base64
 import httpx
@@ -15,8 +11,9 @@ import httpx
 
 router = APIRouter()
 
+
 @router.get("/callback")
-async def spotify_login(request: Request, db: db_dependency):
+async def spotify_login(request: Request, db: Session = Depends(get_db)):
     code_param = request.query_params.get("code")
     try:
         data = {
@@ -31,7 +28,7 @@ async def spotify_login(request: Request, db: db_dependency):
             "Authorization": f"Basic {encoded_credentials}",
         }
 
-        response = await app.state.http_client.post(
+        response = await request.state.http_client.post(
             TOKEN_URL, data=data, headers=headers
         )
         token_info = response.json()
@@ -39,7 +36,7 @@ async def spotify_login(request: Request, db: db_dependency):
 
         user_data = await get_spotify_user_data(access_token)
 
-        existing_user = await get_user(db, user_data["id"])
+        existing_user = await request.app.state.user_service(db, user_data["id"])
         if not existing_user:
             new_user = UserSchema(
                 user_id=user_data["id"],
@@ -50,7 +47,7 @@ async def spotify_login(request: Request, db: db_dependency):
                 token_expires_date=datetime.now().timestamp()
                 + token_info["expires_in"],
             )
-            await create_user(db, new_user)
+            await request.app.state.auth_service.create_user(db, new_user)
 
             await save_user_top_tracks(new_user.auth_token, db)
             await save_top_artists(new_user.auth_token, db)

@@ -1,130 +1,155 @@
-- [] finish auth flow
-- [] display list of available user on the /dashboard page
-- [] link the /check-match endpoint to compare current user with any user.
+# Alma Project TODOs
 
-need the flow to go authorize -> profile() 
+## Implementation Tasks
 
+### Authentication
+- [ ] Implement proper logout functionality
+- [ ] Add Apple Music login capability
 
-# /auth
-POST /api/auth/spotify-login      # Handle Spotify OAuth login
-POST /api/auth/refresh-token      # Refresh access token
-POST /api/auth/logout             # Logout user
+### Real-time Features
+- [ ] Consider using Redis for real-time updates in handlers
+- [ ] Implement proper WebSocket connection handling
 
-# /users
-GET /api/users/me                 # Get current user profile
-PUT /api/users/me                 # Update user profile
-PUT /api/users/me/social-links    # Update social media links
-GET /api/users/{user_id}          # Get public user profile
-GET /api/users/recommendations    # Get recommended users based on music taste
+### Mood Rooms
+- [ ] Implement logic to add users to room participants
+- [ ] Implement logic to remove users from room participants
+- [ ] Implement logic to get room participants
 
+### Playlists
+- [ ] Add error handling for playlist operations
+- [ ] Implement limit on tracks that can be added to a playlist
+- [ ] Implement self-generating playlists based on user taste
 
-# /connections
-POST /api/connections/request/{user_id}    # Send connection request
-PUT /api/connections/{request_id}/accept   # Accept connection request
-PUT /api/connections/{request_id}/reject   # Reject connection request
-GET /api/connections/requests              # Get pending connection requests
-GET /api/connections/                      # Get all connections
-DELETE /api/connections/{connection_id}     # Remove connection
+### Connections
+- [ ] Optimize compatibility calculation logic
 
+## Unit Tests Needed
 
-# /music
-GET /api/music/top-artists              # Get user's top artists
-GET /api/music/top-genres               # Get user's top genres
-GET /api/music/recommendations          # Get personalized music recommendations
-GET /api/music/mutual/{user_id}         # Get mutual music interests with another user
+### Authentication Endpoints
+- [ ] GET /callback
+- [ ] GET /refresh-token
+- [ ] GET /logout
 
-# /playlists
-GET /api/playlists/mutual/{user_id}     # Get mutual playlists with another user
-POST /api/playlists/create              # Create new playlist
-PUT /api/playlists/{playlist_id}        # Update playlist
-DELETE /api/playlists/{playlist_id}     # Delete playlist
+### User Endpoints
+- [ ] GET /me
+- [ ] GET /me/music-profile
+- [ ] PUT /me
+- [ ] PUT /me/social-links
+- [ ] GET /{user_id}
+- [ ] GET /{user_id}/music-profile
+- [ ] GET /recommendations
 
+### Connections Endpoints
+- [x] GET /connections
+- [x] POST /request/{target_user_id}
+- [x] POST /accept/{connection_id}
+- [x] POST /reject/{connection_id}
+- [x] DELETE /{connection_id}
 
-# /mood-rooms
-GET /api/mood-rooms/                    # List all mood rooms
-GET /api/mood-rooms/{room_id}           # Get room details
-POST /api/mood-rooms/join/{room_id}     # Join a mood room
-POST /api/mood-rooms/leave/{room_id}    # Leave a mood room
-GET /api/mood-rooms/{room_id}/users     # Get users in a room
-POST /api/mood-rooms/{room_id}/track    # Update current track in room
+### Mood Rooms Endpoints
+- [ ] GET /
+- [ ] GET /{room_id}
+- [ ] POST /join/{room_id}
+- [ ] POST /leave/{room_id}
+- [ ] GET /{room_id}/users
+- [ ] POST /{room_id}/track
 
+### Music Endpoints
+- [ ] GET /top-artists
+- [ ] GET /top-genres
+- [ ] GET /recommendations
+- [ ] GET /mutual/{user_id}
+- [ ] POST /spotify/sync
+- [ ] GET /profile/metrics
 
-# /ws
-WS /ws/mood-rooms/{room_id}            # Real-time mood room updates
-WS /ws/notifications                    # Real-time notifications
+### Playlists Endpoints
+- [ ] GET /
+- [ ] GET /mutual/{user_id}
+- [ ] POST /
+- [ ] PUT /{playlist_id}
+- [ ] DELETE /{playlist_id}
+- [ ] GET /{playlist_id}/tracks
 
+### Recommendation Endpoints
+- [ ] GET /recommendations/users
+- [ ] GET /recommendations/compatibility/{user_id}
 
-# Core Models
-User
-  - id: UUID
-  - name: str
-  - email: str
-  - spotify_id: str
-  - image_url: str
-  - social_links: JSON
-  - created_at: datetime
+### WebSocket Endpoints
+- [ ] WS /mood-rooms/{room_id}
+- [ ] WS /notifications
 
-Connection
-  - id: UUID
-  - requester_id: UUID (FK User)
-  - receiver_id: UUID (FK User)
-  - status: Enum (pending, accepted, rejected)
-  - created_at: datetime
+## Core Components Testing
 
-MoodRoom
-  - id: UUID
-  - name: str
-  - mood: str
-  - description: str
-  - current_track_id: str
-  - created_at: datetime
+### Database Layer
+- [ ] Test database connection and session management
+- [ ] Test model relationships and constraints
+- [ ] Test database migrations
 
-MoodRoomUser
-  - room_id: UUID (FK MoodRoom)
-  - user_id: UUID (FK User)
-  - joined_at: datetime
+### Authentication (auth/)
+- [ ] Test Spotify OAuth flow
+- [ ] Test token refresh mechanism
+- [ ] Test session management
+- [ ] Test user logout process
 
-UserMusicProfile
-  - user_id: UUID (FK User)
-  - top_artists: JSON
-  - top_genres: JSON
-  - music_soul_level: int
-  - last_updated: datetime
+### User Management (users/)
+- [ ] Test user profile CRUD operations
+- [ ] Test music profile synchronization
+- [ ] Test social links management
+- [ ] Test user recommendations
 
+### Music Integration (music/)
+- [ ] Test Spotify API integration
+- [ ] Test top artists/genres calculation
+- [ ] Test music recommendations algorithm
+- [ ] Test mutual music interests calculation
+- [ ] Test music profile metrics generation
 
-Key Features to Implement:
+### Connections System (connections/)
+- [ ] Test connection request flow
+- [ ] Test connection acceptance/rejection
+- [ ] Test connection removal
+- [ ] Test connection status management
 
-Spotify Integration
-  OAuth2 authentication
-  Fetch user's music data
-  Track listening history
+### Mood Rooms (moodrooms/)
+- [ ] Test room creation and management
+- [ ] Test participant handling
+- [ ] Test real-time updates
+- [ ] Test track management within rooms
 
-Connection System
-  Request/accept/reject logic
-  Social media reveal only after connection
-  Privacy controls
+### Playlists (playlists/)
+- [ ] Test playlist CRUD operations
+- [ ] Test track management
+- [ ] Test playlist sharing
+- [ ] Test mutual playlist discovery
 
-Mood Rooms
-  Real-time user presence
-  Current track synchronization
-  Chat functionality (optional)
+### Real-time Features (realtime/)
+- [ ] Test WebSocket connections
+- [ ] Test real-time notifications
+- [ ] Test room state synchronization
+- [ ] Test connection state updates
 
-Music Matching Algorithm
-  Calculate compatibility scores
-  Genre matching
-  Artist overlap analysis
+### Recommendation Engine (recommendation/)
+- [ ] Test user recommendation algorithm
+- [ ] Test compatibility scoring
+- [ ] Test music taste analysis
+- [ ] Test recommendation filtering
 
-Caching Strategy
-  Redis for mood room state
-  User presence tracking
-  Connection status caching
+### Helpers and Utilities
+- [ ] Test helper functions in helpers/
+- [ ] Test constant values and configurations
+- [ ] Test Apple Music integration utilities
 
-Background Tasks
-  Update music profiles periodically
-  Clean up expired sessions
-  Update recommendations
+## Testing Priorities
+1. [ ] Core authentication and user management
+2. [ ] Database operations and data integrity
+3. [ ] Real-time communication features
+4. [ ] Music integration and synchronization
+5. [ ] Social features (connections, rooms)
+6. [ ] Recommendation systems
 
-Security Features
-  Rate limiting
-  Input validation
-  Connection request spam prevention
+## Testing Types Needed
+- [ ] Unit tests for individual components
+- [ ] Integration tests for API endpoints
+- [ ] End-to-end tests for critical user flows
+- [ ] Performance tests for real-time features
+- [ ] Security tests for authentication
