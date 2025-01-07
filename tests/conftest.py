@@ -9,6 +9,9 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.routing import APIRoute
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.connections.connections import ConnectionService
+from app.connections.router import get_connection_service
+from app.database.database import get_db
 from app.helpers.router.utils import get_user_service
 from app.auth.auth import AuthService
 from app.users.users import UserService
@@ -73,6 +76,14 @@ def db_engine():
     # SQLModel.metadata.drop_all(engine_test)
 
 
+@pytest.fixture(scope="class", autouse=True)
+async def clean_db(db_test):
+    yield
+    for table in reversed(SQLModel.metadata.sorted_tables):
+        db_test.execute(table.delete())
+    db_test.commit()
+
+
 @asynccontextmanager
 async def test_lifespan(app: FastAPI, db_test: Session) -> AsyncIterator[State]:
     app.state.user_service = UserService(db_test)
@@ -94,6 +105,15 @@ async def user_service(app_state):
 async def auth_service(app_state):
     auth_service = app_state['auth_service']
     yield auth_service
+
+
+@pytest.fixture(scope='session')
+async def connection_service(
+    db_test: Session,
+    user_service: UserService
+):
+    connect_service = ConnectionService(db_test, user_service)
+    yield connect_service
 
 
 @pytest.fixture
@@ -159,10 +179,16 @@ async def get_other_sample_user_profile(
 
 
 @pytest.fixture
-async def client(app, sample_user: User, user_service: UserService):
+async def client(
+    app,
+    sample_user: User,
+    user_service: UserService,
+    connection_service: ConnectionService,
+):
     token = sample_user.spotify_token
     headers = {'Content-Type': 'application/json', 'auth-token': f'Bearer {token}'}
     app.dependency_overrides[get_user_service] = lambda: user_service
+    app.dependency_overrides[get_connection_service] = lambda: connection_service
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url='http://127.0.0.1:8000', headers=headers
@@ -173,3 +199,4 @@ async def client(app, sample_user: User, user_service: UserService):
 
     # Clean up the overrides
     del app.dependency_overrides[get_user_service]
+    del app.dependency_overrides[get_connection_service]

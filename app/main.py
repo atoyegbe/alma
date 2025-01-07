@@ -7,10 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.connections.connections import ConnectionService
 from app.auth.auth import AuthService
 from app.users.users import UserService
 from app.database.database import create_db_and_tables, engine
 
+from app.connections.router import router as connections_router
 from app.recommendation.router import router as recommendation_router
 from app.auth.router import router as auth_router
 from app.playlists.router import router as playlist_router
@@ -32,6 +34,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
     with Session(engine) as session:
         app.state.user_service = UserService(session)
         app.state.auth_service = AuthService(session)
+        # app.state.connection_service = ConnectionService(
+        #     session, app.state.user_service)
         yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
 
     await app.state.http_client.aclose()
@@ -52,6 +56,7 @@ app.add_middleware(
 
 
 app.include_router(auth_router, prefix='/auth', tags=['Auth'])
+app.include_router(connections_router, prefix='/connections', tags=['Connections'])
 app.include_router(
     recommendation_router, prefix='/recommendations', tags=['Recommendation']
 )
