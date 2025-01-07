@@ -177,4 +177,3 @@ Made with ❤️ by the Alma Team
 
 <p align="center">
 <a href="https://github.com/yourusername/alma/stargazers">⭐ Star us on GitHub</a>
-</p>
