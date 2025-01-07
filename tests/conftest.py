@@ -9,6 +9,7 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.routing import APIRoute
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.helpers.router.utils import get_user_service
 from app.auth.auth import AuthService
 from app.users.users import UserService
 from app.models.models import MusicProfile, User
@@ -159,28 +160,18 @@ async def get_other_sample_user_profile(
 
 
 @pytest.fixture
-async def client(app, sample_user: User):
+async def client(app, sample_user: User, user_service: UserService):
     token = sample_user.spotify_token
     headers = {'Content-Type': 'application/json', 'auth-token': f'Bearer {token}'}
+    app.dependency_overrides[get_user_service] = lambda: user_service
 
     async with httpx.AsyncClient(
-        app=app, base_url='http://127.0.0.1:8000', headers=headers
+        transport=httpx.ASGITransport(app=app), base_url='http://127.0.0.1:8000', headers=headers
     ) as client:
         print('Test Client is ready')
         yield client
 
 
+    # Clean up the overrides
+    del app.dependency_overrides[get_user_service]
 
-## TODO: Alternative
-
-# @pytest.fixture
-# def client():
-#     # Set up the TestClient with the FastAPI app
-#     client = TestClient(test_app)
-#     yield client
-
-
-# @pytest.fixture
-# def get_header(sample_user: User) -> Dict:
-#     token = sample_user.spotify_token
-#     return {'Content-Type': 'application/json', 'auth-token': f'Bearer {token}'}
