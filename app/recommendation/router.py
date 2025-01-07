@@ -100,7 +100,7 @@ async def get_user_compatibility(
 
     # Calculate compatibility
     similarity = recommender.calculate_overall_similarity(
-        current_profile.to_dict(), target_profile.to_dict()
+        current_profile.dict(), target_profile.dict()
     )
 
     # Add shared music details

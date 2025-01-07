@@ -1,6 +1,7 @@
 import uuid
 import pytest
 
+from app.users.users import UserService
 from app.models.models import User
 
 
@@ -16,11 +17,12 @@ async def test_create_profile(
 
 
 @pytest.mark.dependency(depends=["test_create_profile"])
+@pytest.mark.asyncio
 async def test_get_compatibility_success(
     client,
     other_sample_user: User,
 ):
-    response = client.get(
+    response = await client.get(
         f"/recommendations/compatibility/{other_sample_user.id}"
     )
 
