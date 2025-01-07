@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List, Optional
 from uuid import UUID
-from sqlmodel import Session, or_, select
+from sqlmodel import or_, select
 
+from app.helpers.router.utils import get_user_service
+from app.users.users import UserService
 from app.auth.auth import get_authenticated_user
-from app.database.database import get_db
 from app.models.models import User, MusicProfile
 from app.recommendation.music_recommender import MusicRecommender
 from app.recommendation.datamodels import (
@@ -86,25 +87,16 @@ async def get_recommended_users(
 @router.get("/compatibility/{user_id}", response_model=UserCompatibility)
 async def get_user_compatibility(
     user_id: UUID,
-    db: Session = Depends(get_db),
+    user_service: UserService = Depends(get_user_service),
     current_user: User = Depends(get_authenticated_user)
 ):
     """Get detailed compatibility analysis with another user"""
     # Get target user's profile
-    statement = select(MusicProfile).where(MusicProfile.user_id == user_id)
-    target_profile = db.exec(statement).first()
-    if not target_profile:
-        raise HTTPException(
-            status_code=404, detail="Target user's music profile not found"
-        )
+    target_profile = user_service.get_music_profile(user_id)
 
     # Get current user's profile
-    statement = select(MusicProfile).where(MusicProfile.user_id == current_user.id)
-    current_profile = db.exec(statement).first()
-    if not current_profile:
-        raise HTTPException(
-            status_code=404, detail="Current user's music profile not found"
-        )
+    current_profile = user_service.get_music_profile(current_user.id)
+
 
     # Calculate compatibility
     similarity = recommender.calculate_overall_similarity(

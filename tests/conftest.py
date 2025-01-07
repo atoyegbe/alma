@@ -1,11 +1,10 @@
 import asyncio
-from typing import Annotated, TypedDict
-import uuid
+from typing import AsyncIterator, Dict, TypedDict
 
 import httpx
 import pytest
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from fastapi.routing import APIRoute
 from sqlmodel import Session, SQLModel, create_engine
@@ -31,9 +30,11 @@ def use_route_names_as_operation_ids(app: FastAPI) -> None:
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create an instance of the default event loop for each test case."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
+    asyncio.set_event_loop(loop)
+    print("Event Loop Initialized")
     yield loop
+    print("Event Loop Closed")
     loop.close()
 
 
@@ -43,11 +44,24 @@ def app():
     yield test_app
 
 
-@pytest.fixture(scope='session')
-async def app_state(app):
-    async with test_lifespan(app) as state:
-        yield state
+class State(TypedDict):
+    user_service: UserService
+    auth_service: AuthService
 
+
+@pytest.fixture(scope="session")
+def db_test():
+    """Create a fresh database session for each test"""
+    with Session(engine_test) as session:
+        print(f"Initializing DB Session: {id(session)}")
+        yield session
+        print(f"Closing DB Session: {id(session)}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def app_state(app, db_test):
+    async with test_lifespan(app, db_test) as state:
+        yield state
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -55,39 +69,19 @@ def db_engine():
     """Create test database engine"""
     SQLModel.metadata.create_all(engine_test)
     yield
-    SQLModel.metadata.drop_all(engine_test)
+    # SQLModel.metadata.drop_all(engine_test)
 
-
-@pytest.fixture(autouse=True)
-async def clean_db(db_test):
-    yield
-    for table in reversed(SQLModel.metadata.sorted_tables):
-        db_test.execute(table.delete())
-    db_test.commit()
-
-
-@pytest.fixture(scope="session")
-def db_test():
-    """Create a fresh database session for each test"""
-    with Session(engine_test) as session:
-        yield session
-
-class State(TypedDict):
-    user_service: UserService
-    auth_service: AuthService
 
 
 @asynccontextmanager
-async def test_lifespan(app: FastAPI):
-    with Session(engine_test) as session:
-        # Pass the session directly to the services
-        app.state.user_service = UserService(session)
-        app.state.auth_service = AuthService(session)
-        app.state.http_client = httpx.AsyncClient()
+async def test_lifespan(app: FastAPI, db_test: Session) -> AsyncIterator[State]:
+    app.state.user_service = UserService(db_test)
+    app.state.auth_service = AuthService(db_test)
+    app.state.http_client = httpx.AsyncClient()
 
-        yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
+    yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
 
-        await app.state.http_client.aclose()
+    await app.state.http_client.aclose()
 
 
 @pytest.fixture(scope='session')
@@ -112,9 +106,56 @@ async def sample_user(user_service: UserService):
         'spotify_id': 'test_spotify_id',
     }
     new_user = user_service.create_user(user_data)
-    print(f"Created sample user: {new_user}")
+
+    new_music_profile: Dict = {
+        'genres': ['rock', 'indie', 'electronic'],
+        'top_artists': ['drake', 'olamide', 'wizkid', 'saint jhn'],
+        'top_tracks': ['mood', 'louder', 'one dance'],
+        'energy_score': 0.75,
+        'danceability_score': 0.65,
+        'diversity_score': 0.55,
+        'obscurity_score': 0.45,
+    }
+    user_service.update_user_music_profile(
+        new_user.id, new_music_profile)
 
     return new_user
+
+
+@pytest.fixture
+async def other_sample_user(user_service: UserService):
+    """Create a sample user for testing."""
+    user_data = {
+        'display_name': 'other_sample_test_user',
+        'email': 'other_test_sample@example.com',
+        'spotify_token': 'other_spotify_token',
+        'spotify_id': 'other_test_spotify_id',
+    }
+    new_user = user_service.create_user(user_data)
+
+    new_music_profile: Dict = {
+        'genres': ['afro pop', 'hiphop', 'rnb'],
+        'top_artists': ['asake', 'olamide', 'wizkid'],
+        'top_tracks': ['mood', 'new religion', 'ye'],
+        'energy_score': 0.65,
+        'danceability_score': 0.75,
+        'diversity_score': 0.50,
+        'obscurity_score': 0.65,
+    }
+    user_service.update_user_music_profile(
+        new_user.id, new_music_profile)
+
+    return new_user
+
+
+@pytest.fixture
+async def get_other_sample_user_profile(
+        other_sample_user: User,
+        user_service: UserService
+        ) -> MusicProfile:
+    other_sample_user_profile = user_service.get_music_profile(
+        other_sample_user.id)
+    return other_sample_user_profile
 
 
 @pytest.fixture
@@ -129,40 +170,17 @@ async def client(app, sample_user: User):
         yield client
 
 
+
+## TODO: Alternative
+
 # @pytest.fixture
-# def other_users(db_test: Session):
-#     users = [
-#         User(
-#             id=uuid.uuid4(),
-#             email=f"other{i}@example.com",
-#             spotify_id=f"other_spotify_{i}",
-#             display_name=f"Other User {i}",
-#         )
-#         for i in range(3)
-#     ]
-#     db_test.add_all(users)
-#     db_test.commit()
-#     db_test.refresh(users)
-#     return users
+# def client():
+#     # Set up the TestClient with the FastAPI app
+#     client = TestClient(test_app)
+#     yield client
 
 
 # @pytest.fixture
-# def other_profiles(other_users: List[User], db_test: Session):
-#     other_profiles = [
-#         MusicProfile(
-#             id=uuid.uuid4(),
-#             user_id=user.id,
-#             genres=["rock", "indie", "electronic"],
-#             top_artists=["artist2", "artist4", "artist5"],  # artist2 shared
-#             top_tracks=["track2", "track4", "track5"],  # track2 shared
-#             energy_score=0.75,
-#             danceability_score=0.65,
-#             diversity_score=0.55,
-#             obscurity_score=0.45,
-#         )
-#         for user in other_users
-#     ]
-#     db_test.add_all(other_profiles)
-#     db_test.commit()
-#     db_test.refresh(other_profiles)
-#     return other_profiles
+# def get_header(sample_user: User) -> Dict:
+#     token = sample_user.spotify_token
+#     return {'Content-Type': 'application/json', 'auth-token': f'Bearer {token}'}

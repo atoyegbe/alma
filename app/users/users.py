@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Dict
 from uuid import UUID
 from fastapi import HTTPException
@@ -36,7 +37,21 @@ class UserService:
         statement = select(MusicProfile).where(MusicProfile.user_id == user_id)
         profile = self.db.exec(statement).first()
         if not profile:
-            raise HTTPException(status_code=404, detail="Music profile not found")
+            logging.error(f"Music profile not found for {user_id}")
+            raise HTTPException(status_code=404, detail=f"Music profile not found for {user_id}")
+        return profile
+
+    def update_user_music_profile(self, user_id: UUID, profile_data: Dict) -> MusicProfile:
+        """Update user's music profile"""
+        profile = self.get_music_profile(user_id)
+
+        for key, value in profile_data.items():
+            if hasattr(profile, key):
+                setattr(profile, key, value)
+
+        self.db.add(profile)
+        self.db.commit()
+        self.db.refresh(profile)
         return profile
 
     def update_user(self, user_id: UUID, profile_data: Dict) -> User:
