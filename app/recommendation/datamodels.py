@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from sqlmodel import SQLModel
 
 
@@ -7,8 +7,8 @@ class SimilarityPercentage(SQLModel):
 
 
 class SharedMusic(SQLModel):
-    artists: Optional[List[Dict[str, Any]]] = None
-    tracks: Optional[List[Dict[str, Any]]] = None
+    artists: Optional[List[str]] = None
+    tracks: Optional[List[str]] = None
     genres: Optional[List[str]] = None
 
 

@@ -150,7 +150,7 @@ class UserService:
         )
 
         # Add shared music details
-        shared_music = _get_shared_music(current_profile, target_profile)
+        shared_music = self._get_shared_music(current_profile, target_profile)
 
         return UserCompatibility(
             overall_similarity=similarity.overall_similarity,

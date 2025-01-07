@@ -73,7 +73,6 @@ def db_engine():
     # SQLModel.metadata.drop_all(engine_test)
 
 
-
 @asynccontextmanager
 async def test_lifespan(app: FastAPI, db_test: Session) -> AsyncIterator[State]:
     app.state.user_service = UserService(db_test)
@@ -109,7 +108,7 @@ async def sample_user(user_service: UserService):
     new_user = user_service.create_user(user_data)
 
     new_music_profile: Dict = {
-        'genres': ['rock', 'indie', 'electronic'],
+        'genres': ['rock', 'indie', 'electronic', 'hiphop'],
         'top_artists': ['drake', 'olamide', 'wizkid', 'saint jhn'],
         'top_tracks': ['mood', 'louder', 'one dance'],
         'energy_score': 0.75,
@@ -174,4 +173,3 @@ async def client(app, sample_user: User, user_service: UserService):
 
     # Clean up the overrides
     del app.dependency_overrides[get_user_service]
-

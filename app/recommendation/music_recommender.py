@@ -92,9 +92,12 @@ class MusicRecommender:
         # Decade preference similarity
         decades1 = profile1.get("favorite_decades", [])
         decades2 = profile2.get("favorite_decades", [])
-        similarities["decade_similarity"] = self.calculate_text_similarity(
-            [str(d) for d in decades1], [str(d) for d in decades2]
-        )
+        if decades1 and decades2:
+            similarities["decade_similarity"] = self.calculate_text_similarity(
+                [str(d) for d in decades1], [str(d) for d in decades2]
+            )
+        else:
+            similarities["decade_similarity"] = 0.0
 
         # Listening patterns similarity
         similarities["listening_pattern_similarity"] = (
@@ -121,7 +124,10 @@ class MusicRecommender:
             similarities[key] * weight for key, weight in weights.items()
         )
 
-        return UserCompatibility(overall_similarity=overall_similarity, **similarities)
+        return UserCompatibility(
+            overall_similarity=overall_similarity,
+            **similarities
+        )
 
     def get_user_recommendations(
         self,

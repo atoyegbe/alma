@@ -1,7 +1,6 @@
 import uuid
 import pytest
 
-from app.users.users import UserService
 from app.models.models import User
 
 
@@ -28,12 +27,12 @@ async def test_get_compatibility_success(
 
     # Assert
     assert response.status_code == 200
-    # data = response.json()
-    # assert "overall_similarity" in data
-    # assert "shared_music" in data
-    # assert len(data["shared_music"]["artists"]) > 0  # Should have shared artist2
-    # assert len(data["shared_music"]["tracks"]) > 0  # Should have shared track2
-    # assert len(data["shared_music"]["genres"]) > 0  # Should have shared genres
+    data = response.json()
+    assert "overall_similarity" in data
+    assert "shared_music" in data
+    assert len(data["shared_music"]["artists"]) > 0
+    assert len(data["shared_music"]["tracks"]) > 0
+    assert len(data["shared_music"]["genres"]) > 0
 
 
 @pytest.mark.asyncio
