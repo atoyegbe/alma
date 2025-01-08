@@ -93,3 +93,18 @@ class TestConnectionRequests:
         updated_connection = data['connection']
         assert updated_connection['status'] == "rejected"
 
+    @pytest.mark.dependency(
+            depends=["TestConnectionRequests::test_send_request_connections"])
+    async def test_cancel_connection(
+            self,
+            client,
+            ):
+        connect_id = TestConnectionRequests._connection_id
+        response = await client.post(
+            f"/connections/cancel/{connect_id}")
+
+        # Assert
+        assert response.status_code == 200
+
+        assert "Connection cancelled" == response.json()['message']
+
