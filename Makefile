@@ -26,7 +26,7 @@ $(VENV)/bin/activate:
 
 # Run tests
 test:
-	pytest $(TEST_DIR)
+	pytest $(TEST_DIR) -s
 
 # Run linter (flake8)
 lint:

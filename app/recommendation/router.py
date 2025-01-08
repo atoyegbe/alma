@@ -91,30 +91,8 @@ async def get_user_compatibility(
     current_user: User = Depends(get_authenticated_user)
 ):
     """Get detailed compatibility analysis with another user"""
-    # Get target user's profile
-    target_profile = user_service.get_music_profile(user_id)
-
-    # Get current user's profile
-    current_profile = user_service.get_music_profile(current_user.id)
-
-
-    # Calculate compatibility
-    similarity = recommender.calculate_overall_similarity(
-        current_profile.dict(), target_profile.dict()
-    )
-
-    # Add shared music details
-    shared_music = _get_shared_music(current_profile, target_profile)
-
-    return UserCompatibility(
-        overall_similarity=similarity.overall_similarity,
-        genre_similarity=similarity.genre_similarity,
-        artist_similarity=similarity.artist_similarity,
-        diversity_similarity=similarity.diversity_similarity,
-        obscurity_similarity=similarity.obscurity_similarity,
-        decade_similarity=similarity.decade_similarity,
-        listening_pattern_similarity=similarity.listening_pattern_similarity,
-        shared_music=shared_music,
+    return user_service.get_user_compatibility(
+        current_user.id, user_id
     )
 
 

@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.connections.connections import ConnectionService
 from app.auth.auth import AuthService
 from app.users.users import UserService
 from app.database.database import create_db_and_tables, engine
@@ -34,8 +33,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
     with Session(engine) as session:
         app.state.user_service = UserService(session)
         app.state.auth_service = AuthService(session)
-        # app.state.connection_service = ConnectionService(
-        #     session, app.state.user_service)
         yield {'user_service': app.state.user_service, 'auth_service': app.state.auth_service}
 
     await app.state.http_client.aclose()

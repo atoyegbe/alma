@@ -125,28 +125,19 @@ class UserService:
         return recommended_users
 
     def get_user_compatibility(
-        self, profile1: MusicProfile, profile2: MusicProfile
+        self, user_id: UUID, target_user_id: UUID
     ) -> UserCompatibility:
-        """Get detailed compatibility analysis between two user profiles"""
+        """Get detailed compatibility analysis with another user"""
         # Get target user's profile
-        statement = select(MusicProfile).where(MusicProfile.user_id == user_id)
-        target_profile = db.exec(statement).first()
-        if not target_profile:
-            raise HTTPException(
-                status_code=404, detail="Target user's music profile not found"
-            )
+        target_profile = self.get_music_profile(target_user_id)
 
         # Get current user's profile
-        statement = select(MusicProfile).where(MusicProfile.user_id == current_user.id)
-        current_profile = db.exec(statement).first()
-        if not current_profile:
-            raise HTTPException(
-                status_code=404, detail="Current user's music profile not found"
-            )
+        current_profile = self.get_music_profile(user_id)
+
 
         # Calculate compatibility
         similarity = self._recommender.calculate_overall_similarity(
-            current_profile.to_dict(), target_profile.to_dict()
+            current_profile.dict(), target_profile.dict()
         )
 
         # Add shared music details

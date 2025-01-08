@@ -36,13 +36,6 @@ async def test_get_compatibility_success(
 
 
 @pytest.mark.asyncio
-async def test_unauthorized_user_access(client):
-    response = await client.get("/recommendations/users",
-                                headers={'auth-token': 'rubbissshhh'})
-    assert response.status_code == 401
-
-
-@pytest.mark.asyncio
 async def test_invalid_user_id(
     client,
 ):
@@ -51,3 +44,16 @@ async def test_invalid_user_id(
         f"/recommendations/compatibility/{invalid_user_id}"
     )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_unauthorized_user_access(client):
+    response = await client.get("/recommendations/users",
+                                headers={'auth-token': 'rubbissshhh'})
+    assert response.status_code == 401
+
+
+async def test_get_recommended_users_success(client):
+    response = await client.get("/recommendations/users")
+
+    assert response.status_code == 200
